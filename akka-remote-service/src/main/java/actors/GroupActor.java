@@ -12,7 +12,7 @@ public class GroupActor extends AbstractActor {
     /**
      This is the server.GroupServerActor, will host all messaging functionality for channels and is responsible over
      sending messages for groups's users. Will know if a user is an admin or not.
-     TODO: implement createReceive- needs to create channels and delete them on demand from the server.
+     TODO: implement the group functionality.
      **/
     @Override
     public Receive createReceive() {

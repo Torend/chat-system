@@ -8,6 +8,9 @@ import java.util.HashMap;
 import java.util.Map;
 class UserData
 {
+    /*
+    this is the class that represent the data that the server uses to track a user
+     */
     public ActorRef clientRef;
     public Map activeGroups;
     public UserData(ActorRef ref)
@@ -40,7 +43,7 @@ class UserData
     }
 }
 public class ServerActor extends AbstractActor {
-    private Map map;
+    private Map map; // holds all existing user. it is a map of class UserData
 
     @Override
     public Receive createReceive() {
@@ -75,28 +78,6 @@ public class ServerActor extends AbstractActor {
                     //will retorn the actorpath of the actor in serializable format
                     UserData foundUser = new UserData((ActorRef) map.get(getClient.username));
                     Action.GetClientResult result = new Action.GetClientResult(foundUser.clientRef.path().toSerializationFormat(), true);
-                    sender().tell(result, self());
-                })
-                .match(Op.Subtract.class, subtract -> {
-                    System.out.println("Calculating " + subtract.getN1() + " - "
-                            + subtract.getN2());
-                    Op.SubtractResult result = new Op.SubtractResult(subtract.getN1(),
-                            subtract.getN2(), subtract.getN1() - subtract.getN2());
-                    sender().tell(result, self());
-                })
-                .match(Op.Multiply.class, multiply -> {
-                    System.out.println("Calculating " + multiply.getN1() + " * "
-                            + multiply.getN2());
-                    Op.MultiplicationResult result = new Op.MultiplicationResult(
-                            multiply.getN1(), multiply.getN2(), multiply.getN1()
-                            * multiply.getN2());
-                    sender().tell(result, self());
-                })
-                .match(Op.Divide.class, divide -> {
-                    System.out.println("Calculating " + divide.getN1() + " / "
-                            + divide.getN2());
-                    Op.DivisionResult result = new Op.DivisionResult(divide.getN1(),
-                            divide.getN2(), divide.getN1() / divide.getN2());
                     sender().tell(result, self());
                 })
                 .build();

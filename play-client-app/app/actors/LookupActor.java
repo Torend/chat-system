@@ -25,6 +25,11 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+/*
+this is the actor of the client itself.
+does all the messaging functionality.
+
+ */
 public class LookupActor extends AbstractActor {
 
     private static final Logger logger = LoggerFactory.getLogger(LookupActor.class);
@@ -80,7 +85,7 @@ public class LookupActor extends AbstractActor {
                 server.tell(conMessage, self()); // TODO: should be ASK to know if the user was indeed created
             })
             .match(Action.SendMessage.class, message -> {
-                // send message to server actor
+                // send  text message to server actor- works. //TODO: add similar function to send files
                 Action.GetClient getClient = new Action.GetClient(message.username);
                 Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
                 Future<Object> rt = Patterns.ask(server, getClient, timer);
@@ -102,6 +107,7 @@ public class LookupActor extends AbstractActor {
 
             })
             .match(Action.SendText.class, text -> {
+                // in case a message arrives
                 logger.info("Text: {}", text.message);
             })
             .match(Op.AddResult.class, result -> {

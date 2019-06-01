@@ -3,36 +3,45 @@ package actors;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
+
+import java.util.HashMap;
+import java.util.Map;
+
+class GroupData
+{
+    /*
+    this is the class that represent the data that the server uses to track a group
+    TODO: complete the data structure. should be able to know who's the main admin, who's co admin, who's muted, who's invited and the other users.
+     */
+    public ActorRef groupRef;
+    public String admin;
+    public Map admins;
+    public Map activeUsers;
+    public GroupData(ActorRef ref)
+    {
+    }
+
+}
 /**
  This is the server.GroupManagementActor, a part of the server that creates groups actors and stores them.
  Only responsible for group management and not a part of sending messages.
- TODO: implement createReceive- needs to create groups and delete them on demand from the server.
+ TODO: implement the entire groups management
  **/
-/*public class GroupManager extends AbstractActor {
-
+public class GroupManager extends AbstractActor {
+    private Map groupsData; // this is the database to keep track of groups
     final String groupPath = "/user/Server/Groups";
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(CreateGroup.class, handledMsg -> {
-                    ActorRef resolvedRef = UtilFunctions.resolveActorRef(getContext().actorSelection(groupPath + handledMsg.groupname));
-                    if(resolvedRef != null)
-                    {
-                        //TODO: handle alredy existing group
+                .match(Action.CreateGroup.class, handledMsg -> {
+                    //TODO: handle
 
-                    } else
-                    {
-                        // wasn't able to find the group- create it
-                        ActorRef newGroup = getContext().actorOf(Props.create(GroupServerActor.class,
-                                handledMsg.groupname), handledMsg.groupname);
-                    }
-                    //TODO: return response
 
                 }).build();
     }
 
     @Override
     public void preStart() {
-
+        this.groupsData = new HashMap();
     }
-}*/
+}

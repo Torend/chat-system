@@ -11,6 +11,7 @@ import javax.inject.Named;
 /**
  * This controller contains an action to handle HTTP requests
  * to the application's home page.
+ * TODO: understand how play framework works to make a frontend with it.
  */
 public class HomeController extends Controller {
 
@@ -28,6 +29,10 @@ public class HomeController extends Controller {
      * <code>GET</code> request with a path of <code>/</code>.
      */
     public Result index() {
+        /*
+        this is the homepage, when you enter localhost:9000 the actions here will happen.
+        currently I used it to test messaging.
+         */
         lookupActor.tell(new Action.Connect("fucker"), null);
         lookupActor.tell(new Action.SendText("fucker", "fuck"), null);
         return ok(views.html.index.render());

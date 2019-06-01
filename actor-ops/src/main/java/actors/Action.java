@@ -4,7 +4,10 @@ import akka.actor.ActorPath;
 import akka.actor.ActorRef;
 
 import java.io.Serializable;
-
+/*
+this is where all the action messages are defined.
+whenever you want to add a message do it here
+ */
 public class Action {
 
     public interface Message extends Serializable {
@@ -31,6 +34,17 @@ public class Action {
         public SendMessage(String username, String message) {
             this.username = username;
             this.message = message;
+        }
+
+    }
+
+    public static class CreateGroup implements Message {
+        public final String adminName;
+        public final String groupName;
+
+        public CreateGroup(String adminName, String groupName) {
+            this.adminName = adminName;
+            this.groupName = groupName;
         }
 
     }
