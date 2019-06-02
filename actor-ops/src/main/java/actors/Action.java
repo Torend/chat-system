@@ -41,13 +41,39 @@ public class Action {
     public static class CreateGroup implements Message {
         public final String adminName;
         public final String groupName;
+        public final ActorRef adminRef;
 
-        public CreateGroup(String adminName, String groupName) {
+        public CreateGroup(String adminName, String groupName, ActorRef adminRef) {
             this.adminName = adminName;
+            this.groupName = groupName;
+            this.adminRef = adminRef;
+        }
+
+    }
+
+
+    public static class InviteToGroup implements Message {
+        public final String inviteeName;
+        public final String groupName;
+
+        public InviteToGroup(String inviteeName, String groupName) {
+            this.inviteeName = inviteeName;
             this.groupName = groupName;
         }
 
     }
+
+    public static class AddToGroup implements Message {
+        public final ActorRef inviteeRef;
+        public final String groupName;
+
+        public AddToGroup(ActorRef inviteeRef, String groupName) {
+            this.inviteeRef = inviteeRef;
+            this.groupName = groupName;
+        }
+
+    }
+
 
     public static class SendText implements Message {
         private static final long serialVersionUID = 1L;
@@ -95,14 +121,15 @@ public class Action {
 
     static class ActionResult implements MessageResult {
         private static final long serialVersionUID = 1L;
-        public final boolean result;
+        private final Errors.Error result;
 
-        public ActionResult(boolean result) {
+
+        public ActionResult(Errors.Error result) {
 
             this.result = result;
         }
 
-        public boolean getResult() {
+        public Errors.Error getResult() {
             return result;
         }
     }

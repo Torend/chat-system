@@ -59,8 +59,8 @@ public class ServerActor extends AbstractActor {
                       map.put(connect.username, newUser);
                       success = true;
                     }
+                    Action.MessageResult result = new Action.ActionResult(Errors.Error.SUCCESS);//success);
 
-                    Action.MessageResult result = new Action.ActionResult(success);
                     sender().tell(result, self());
                 })
                 .match(Action.Disconnect.class, disconnect -> {
@@ -73,11 +73,11 @@ public class ServerActor extends AbstractActor {
                         success = true;
                     }
 
-                    Action.MessageResult result = new Action.ActionResult(success);
+                    Action.MessageResult result = new Action.ActionResult(Errors.Error.SUCCESS);
                     sender().tell(result, self());
                 })
                 .match(Action.GetClient.class, getClient -> {
-                    //will retorn the actorpath of the actor in serializable format
+                    //will return the ActorPath of the actor in serializable format
                     UserData foundUser = new UserData((ActorRef) map.get(getClient.username));
                     Action.GetClientResult result = new Action.GetClientResult(foundUser.clientRef.path().toSerializationFormat(), true);
                     sender().tell(result, self());

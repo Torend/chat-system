@@ -231,5 +231,6 @@
       </library>
     </orderEntry>
     <orderEntry type="module" module-name="main" />
+    <orderEntry type="library" name="sbt: com.typesafe.akka:akka-actor_2.12:2.5.17:jar" level="project" />
   </component>
 </module>
