@@ -49,9 +49,8 @@ class GroupData
  The roles are- admin, co admin, user, muted.
  How will a front end user know the state of the action?
  the chain will be-
- 1. message sent from user client to server to obtain ActorRef for his GroupUserActor in the group he wants to perform action in.
- 2. user client "Asks" action message to GroupManager which responds if its possible and uses error codes from Errors.Error
- 3. Returns answer to user client and performs action if possible.
+ 1. user client "Asks" action message to GroupManager which responds if its possible and uses error codes from Errors.Error
+ 2. Returns answer to user client and performs action if possible.
  **/
 public class GroupManager extends AbstractActor {
     private Map groupsData; // this is the database to keep track of groups
