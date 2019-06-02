@@ -2,6 +2,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.12.7",
   javacOptions ++= Seq("-Xlint:deprecation"),
   libraryDependencies += "com.typesafe.akka" %% "akka-remote" % "2.5.17",
+  libraryDependencies += guice,
 
   organization := "com.lightbend",
   version := "1.0-SNAPSHOT"
@@ -20,7 +21,7 @@ lazy val `play-client-app` = (project in file("play-client-app"))
   .enablePlugins(PlayJava)
   .settings(commonSettings: _*)
   .settings(
-    libraryDependencies += guice
+
   )
   .dependsOn(`actor-ops`)
 

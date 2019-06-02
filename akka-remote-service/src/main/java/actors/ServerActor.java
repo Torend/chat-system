@@ -13,6 +13,7 @@ class UserData
      */
     public ActorRef clientRef;
     public Map activeGroups;
+
     public UserData(ActorRef ref)
     {
         this.clientRef = ref;
@@ -44,6 +45,7 @@ class UserData
 }
 public class ServerActor extends AbstractActor {
     private Map map; // holds all existing user. it is a map of class UserData
+    private ActorRef groupsManager;
 
     @Override
     public Receive createReceive() {
@@ -85,6 +87,8 @@ public class ServerActor extends AbstractActor {
 
     @Override
     public void preStart() {
+        // used to initialize the users DB and the groups manager.
         this.map = new HashMap();
+        this.groupsManager = getContext().actorOf(Props.create(GroupManager.class), "groups");
     }
 }

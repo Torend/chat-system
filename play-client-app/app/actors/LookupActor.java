@@ -57,6 +57,29 @@ public class LookupActor extends AbstractActor {
                         ReceiveTimeout.getInstance(), getContext().dispatcher(), self());
     }
 
+    private ActorRef getClientActorRef(String username)
+    {
+        /*
+        function that is used to detect other clients we want to send direct messages to.
+         */
+        Action.GetClient getClient = new Action.GetClient(username);
+        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Future<Object> rt = Patterns.ask(server, getClient, timer);
+        Action.GetClientResult client;
+        try {
+            client = (Action.GetClientResult) Await.result(rt, timer.duration());
+            timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+            if(client.didFind)
+            {
+                return getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
+            }
+        } catch (Exception e) {
+            logger.debug(e.getMessage());
+            return null;
+        }
+        return null;
+    }
+
     @Override
     public Receive createReceive() {
         return receiveBuilder()
@@ -85,15 +108,12 @@ public class LookupActor extends AbstractActor {
                 server.tell(conMessage, self()); // TODO: should be ASK to know if the user was indeed created
             })
             .match(Action.SendMessage.class, message -> {
-                // send  text message to server actor- works. //TODO: add similar function to send files
-                Action.GetClient getClient = new Action.GetClient(message.username);
-                Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
-                Future<Object> rt = Patterns.ask(server, getClient, timer);
-                Action.GetClientResult client = (Action.GetClientResult) Await.result(rt, timer.duration());
-                timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
-                if(client.didFind)
+                // send  text message to server actor- works. //TODO: add similar function to send files, add group logic
+
+                ActorRef sendeeRef = Util.getClientActorRef(message.username, getContext(), server, logger);//getClientActorRef(message.username);
+                if(sendeeRef != null)
                 {
-                    ActorRef sendeeRef = getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
+                   // ActorRef sendeeRef = getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
                     Action.SendText textMessage = new Action.SendText(this.username, message.message);
                     sendeeRef.tell(textMessage, self());
                     //server.tell(message, self());
