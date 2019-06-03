@@ -3,6 +3,8 @@ package controllers;
 import actors.Action;
 import actors.Op;
 import akka.actor.ActorRef;
+import play.data.DynamicForm;
+import play.data.Form;
 import play.mvc.*;
 
 import javax.inject.Inject;
@@ -50,5 +52,12 @@ public class HomeController extends Controller {
         // Fire-and-forget
         lookupActor.tell(new Op.Subtract(a, b), null);
         return ok("Subtract: See the logs for result");
+    }
+
+    public Result sendTo()
+    {
+        //DynamicForm form = Form.form().bindFromRequest();
+        return ok("fuc kyo");
+
     }
 }

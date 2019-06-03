@@ -1,6 +1,5 @@
 package actors;
 
-import akka.actor.ActorPath;
 import akka.actor.ActorRef;
 
 import java.io.Serializable;
@@ -12,6 +11,7 @@ public class Action {
 
     public interface Message extends Serializable {
     }
+
 
     public interface MessageResult extends Serializable {
     }
@@ -69,6 +69,17 @@ public class Action {
 
         public AddToGroup(ActorRef inviteeRef, String groupName) {
             this.inviteeRef = inviteeRef;
+            this.groupName = groupName;
+        }
+
+    }
+
+    public static class RemoveFromGroup implements Message {
+        public final ActorRef removedRef;
+        public final String groupName;
+
+        public RemoveFromGroup(ActorRef removedRef, String groupName) {
+            this.removedRef = removedRef;
             this.groupName = groupName;
         }
 
