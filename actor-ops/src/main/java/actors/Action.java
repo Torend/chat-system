@@ -3,6 +3,7 @@ package actors;
 import akka.actor.ActorRef;
 
 import java.io.Serializable;
+
 /*
 this is where all the action messages are defined.
 whenever you want to add a message do it here
@@ -38,6 +39,20 @@ public class Action {
 
     }
 
+    public static class GroupTextMessage implements Message {
+        private static final long serialVersionUID = 1L;
+        public final String groupName;
+        public final String senderName;
+        public final Message message;
+
+        public GroupTextMessage(String groupName, String senderName, Message message) {
+            this.groupName = groupName;
+            this.senderName = senderName;
+            this.message = message;
+        }
+
+    }
+
     public static class CreateGroup implements Message {
         public final String adminName;
         public final String groupName;
@@ -51,12 +66,13 @@ public class Action {
 
     }
 
-
     public static class InviteToGroup implements Message {
+        public final String inviterName;
         public final String inviteeName;
         public final String groupName;
 
-        public InviteToGroup(String inviteeName, String groupName) {
+        public InviteToGroup(String inviterName, String inviteeName, String groupName) {
+            this.inviterName = inviterName;
             this.inviteeName = inviteeName;
             this.groupName = groupName;
         }
@@ -65,24 +81,91 @@ public class Action {
 
     public static class AddToGroup implements Message {
         public final ActorRef inviteeRef;
+        public final String inviteeName;
         public final String groupName;
 
-        public AddToGroup(ActorRef inviteeRef, String groupName) {
+        public AddToGroup(ActorRef inviteeRef, String inviteeName, String groupName) {
             this.inviteeRef = inviteeRef;
+            this.inviteeName = inviteeName;
             this.groupName = groupName;
         }
 
     }
 
     public static class RemoveFromGroup implements Message {
-        public final ActorRef removedRef;
+        public final String senderName;
+        public final String removedName;
         public final String groupName;
 
-        public RemoveFromGroup(ActorRef removedRef, String groupName) {
-            this.removedRef = removedRef;
+        public RemoveFromGroup(String senderName, String removedName, String groupName) {
+            this.senderName = senderName;
+            this.removedName = removedName;
             this.groupName = groupName;
         }
 
+    }
+
+
+    public static class AddCoAdmin implements Message {
+        public final String senderName;
+        public final String coAdminName;
+        public final String groupName;
+
+        public AddCoAdmin(String senderName, String coAdminName, String groupName) {
+            this.senderName = senderName;
+            this.coAdminName = coAdminName;
+            this.groupName = groupName;
+        }
+    }
+
+
+    public static class DeleteCoAdmin implements Message {
+        public final String senderName;
+        public final String coAdminName;
+        public final String groupName;
+
+        public DeleteCoAdmin(String senderName, String coAdminName, String groupName) {
+            this.senderName = senderName;
+            this.coAdminName = coAdminName;
+            this.groupName = groupName;
+        }
+    }
+
+
+    public static class MuteMember implements Message {
+        public final String senderName;
+        public final String muteName;
+        public final String groupName;
+        public final int time;
+
+        public MuteMember(String senderName, String muteName, String groupName, int time) {
+            this.senderName = senderName;
+            this.muteName = muteName;
+            this.groupName = groupName;
+            this.time = time;
+        }
+    }
+
+
+    public static class UnMuteMember implements Message {
+        public final String senderName;
+        public final String unMuteName;
+        public final String groupName;
+
+        public UnMuteMember(String senderName, String unMuteName, String groupName) {
+            this.senderName = senderName;
+            this.unMuteName = unMuteName;
+            this.groupName = groupName;
+        }
+    }
+
+
+    public static class MutingTimeUp implements Message{
+        public final String groupName;
+
+        public MutingTimeUp(String groupName) {
+            this.groupName = groupName;
+        }
     }
 
 
@@ -97,6 +180,7 @@ public class Action {
         }
 
     }
+
     public static class Disconnect implements Message {
         private static final long serialVersionUID = 1L;
         public final String username;
