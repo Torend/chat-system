@@ -130,6 +130,7 @@ public class LookupActor extends AbstractActor {
             .match(Action.SendText.class, text -> {
                 // in case a message arrives
                 logger.info("Text: {}", text.message);
+
             })
             .match(Op.AddResult.class, result -> {
                 logger.info("Add result: {} + {} = {}", result.getN1(), result.getN2(), result.getResult());

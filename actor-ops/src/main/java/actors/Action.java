@@ -17,6 +17,27 @@ public class Action {
     public interface MessageResult extends Serializable {
     }
 
+    public static class AskOutput implements Message {
+        private static final long serialVersionUID = 1L;
+
+        public AskOutput() {
+
+        }
+
+    }
+
+
+    public static class GetOutput implements Message {
+        private static final long serialVersionUID = 1L;
+        public final String text; // TODO: turn into list of lines to print
+
+        public GetOutput(String text) {
+            this.text = text;
+        }
+
+    }
+
+
     public static class Connect implements Message {
         private static final long serialVersionUID = 1L;
         public final String username;

@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="connect-src *; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'">
   <script src='@routes.Assets.versioned("javascripts/jquery-3.4.1.min.js")' type="text/javascript"></script>
-  <script src='@routes.Assets.versioned("javascripts/hello.js")' type="text/javascript"></script>
+
   <title>Chat Room</title>
 
 </head>
@@ -43,7 +43,38 @@
   </div>
 </div>
 <script language="javascript">
+var $messages = $("#messages"),
+        $send = $("#send"),
+        $message = $("#message"),
+        connection = new WebSocket("@url");
 
+//$send.prop("disabled", true);
+$send.submit(function(){
+alert("asdakd")
+})
+var send = function () {
+    var text = $message.val();
+    $message.val("");
+    connection.send(text);
+};
+
+connection.onopen = function () {
+    $send.prop("disabled", false);
+    $messages.prepend($("<li class='bg-info' style='font-size: 1.5em'>Connected</li>"));
+    $send.on('click', send);
+    $message.keypress(function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            send();
+        }
+    });
+};
+connection.onerror = function (error) {
+    console.log('WebSocket Error ', error);
+};
+connection.onmessage = function (event) {
+    $messages.append($("<li style='font-size: 1.5em'>" + event.data + "</li>"))
+}
 </script>
 </body>
 
