@@ -20,7 +20,6 @@ class GroupData {
     public String admin;
     public Map<String, ActorRef> adminsList;
     public Map<String, ActorRef> activeUsers;
-    ;
     public HashMap<String, Duration> mutedUsers;
     public Router groupRouter;
 
@@ -41,7 +40,11 @@ class GroupData {
         this.groupRouter.removeRoutee(activeUsers.get(username));
         this.activeUsers.remove(username);
         this.adminsList.remove(username);
+    }
 
+    public void closeGroup(){ // TODO
+        adminsList.clear();
+        activeUsers.clear();
     }
 
     public void addCoAdmin(String username, ActorRef actorRef) {
@@ -56,7 +59,6 @@ class GroupData {
 /**
  * This is the server.GroupManagementActor, a part of the server that creates groups actors and stores them.
  * Only responsible for group management and not a part of sending messages.
- * TODO: implement the entire groups management
  * the flow should be as such-
  * the groups DB will hold each group. sending messages to a group is done via a router.
  * to add a user just use the router adding functions.
@@ -100,14 +102,35 @@ public class GroupManager extends AbstractActor {
                     else result = new Action.ActionResult(Errors.Error.DUPLICATE_GROUP);
                     sender().tell(result, self());
                 })
-                .match(Action.GroupTextMessage.class, groupTextMessage -> {
+                .match(Action.LeaveGroup.class, leaveGroup -> {
                     Action.ActionResult result;
-                    GroupData findGroup = this.groupsData.get(groupTextMessage.groupName);
+                    GroupData findGroup = this.groupsData.get(leaveGroup.groupName);
                     if (findGroup == null)
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
                     else {
-                        if (!findGroup.mutedUsers.containsKey(groupTextMessage.senderName)) {
-                            findGroup.groupRouter.route(new Broadcast(groupTextMessage), self());
+                        if (leaveGroup.senderName.equals(findGroup.admin)){
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName,"none", "admin has closed "+findGroup.groupName+"!");
+                            findGroup.groupRouter.route(new Broadcast(msg), self());
+                            findGroup.closeGroup();
+                            result = new Action.ActionResult(Errors.Error.SUCCESS);
+                        }
+                        else {
+                            findGroup.deleteUser(leaveGroup.senderName);
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName,"none", leaveGroup.senderName+ " has left "+findGroup.groupName+"!");
+                            findGroup.groupRouter.route(new Broadcast(msg), self());
+                            result = new Action.ActionResult(Errors.Error.SUCCESS);
+                        }
+                    }
+                    sender().tell(result, self());
+                })
+                .match(Action.GroupMessage.class, groupMessage -> {
+                    Action.ActionResult result;
+                    GroupData findGroup = this.groupsData.get(groupMessage.groupName);
+                    if (findGroup == null)
+                        result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
+                    else {
+                        if (!findGroup.mutedUsers.containsKey(groupMessage.senderName)) {
+                            findGroup.groupRouter.route(new Broadcast(groupMessage), self());
                             result = new Action.ActionResult(Errors.Error.SUCCESS);
                         }
                         else {
