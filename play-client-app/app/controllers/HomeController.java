@@ -3,9 +3,15 @@ package controllers;
 import actors.Action;
 import actors.Op;
 import akka.actor.ActorRef;
+import akka.stream.javadsl.Flow;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import play.mvc.WebSocket;
 import play.data.DynamicForm;
 import play.data.Form;
+import play.libs.streams.ActorFlow;
 import play.mvc.*;
+
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -23,7 +29,19 @@ public class HomeController extends Controller {
     public HomeController(@Named("lookup-actor") ActorRef lookupActor) {
         this.lookupActor = lookupActor;
     }
+    public WebSocket socket() {
 
+        return WebSocket.Text.accept(
+                request -> {
+                    // Log events to the console
+                    Sink<String, ?> in = Sink.foreach(System.out::println);
+
+                    // Send a single 'Hello!' message and then leave the socket open
+                    Source<String, ?> out = Source.single("Hello!").concat(Source.maybe());
+
+                    return Flow.fromSinkAndSource(in, out);
+                });
+    }
     /**
      * An action that renders an HTML page with a welcome message.
      * The configuration in the <code>routes</code> file means that
@@ -35,9 +53,11 @@ public class HomeController extends Controller {
         this is the homepage, when you enter localhost:9000 the actions here will happen.
         currently I used it to test messaging.
          */
+        Http.Request request = request();
+        String url = routes.HomeController.socket().webSocketURL(request);
         lookupActor.tell(new Action.Connect("fucker"), null);
         lookupActor.tell(new Action.SendText("fucker", "fuck"), null);
-        return ok(views.html.index.render());
+        return Results.ok(views.html.index.render());
     }
 
     public Result add(int a, int b) {

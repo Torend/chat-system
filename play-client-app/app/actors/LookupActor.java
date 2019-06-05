@@ -49,6 +49,7 @@ public class LookupActor extends AbstractActor {
     }
 
     private void sendIdentifyRequest() {
+
         getContext().actorSelection(path).tell(new Identify(path), self());
         getContext()
                 .system()
