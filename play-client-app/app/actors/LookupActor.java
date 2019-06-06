@@ -98,6 +98,34 @@ public class LookupActor extends AbstractActor {
                 .match(ReceiveTimeout.class, x -> {
                     sendIdentifyRequest();
                 })
+                .match(Action.InviteToGroup.class, invitation -> {
+                    logger.info("You have been invited to {}, Accept?", invitation.groupName);
+                    //TODO <targetusername> may accept [Yes] or deny [No] the invite. Response will be sent back to <sourceusername<
+                    String response = ""; // get response from the user
+                    ActorRef inviterRef = getClientActorRef(invitation.inviterName);
+                    assert inviterRef != null;
+                    if (response.equals("Yes"))
+                        inviterRef.tell(new Action.Requset.Accept(this.username), self());
+                    else inviterRef.tell(new Action.Requset.Deny(this.username), self());
+                })
+                .match(Action.RemoveFromGroup.class, removeFromGroup -> {
+                    logger.info("You have been removed from {} by {}!", removeFromGroup.groupName, removeFromGroup.removedName);
+                })
+                .match(Action.MuteMember.class, muteMember -> {
+                    logger.info("You have been muted for {} in {} by {}!", muteMember.time, muteMember.groupName, muteMember.senderName);
+                })
+                .match(Action.UnMuteMember.class, unMuteMember -> {
+                    logger.info("You have been unmuted in {} by {}", unMuteMember.groupName, unMuteMember.senderName);
+                })
+                .match(Action.MutingTimeUp.class, mutingTimeUp -> {
+                    logger.info("You have been unmuted! in {} Muting time is up!", mutingTimeUp.groupName);
+                })
+                .match(Action.AddCoAdmin.class, addCoAdmin -> {
+                    logger.info("You have been promoted to co-admin in {}!", addCoAdmin.groupName);
+                })
+                .match(Action.DeleteCoAdmin.class, deleteCoAdmin -> {
+                    logger.info("You have been demoted to user in {}!", deleteCoAdmin.groupName);
+                })
                 .build();
     }
 
@@ -172,9 +200,7 @@ public class LookupActor extends AbstractActor {
         try {
             result = (Action.ActionResult) Await.result(rt, timer.duration());
             if (result != null) {
-                if (result.getResult() == Errors.Error.SUCCESS) {
-                    return;
-                } else if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
+                if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
                     logger.info(groupName + " " + result.getResult().getDescription());
             }
         } catch (Exception e) {
@@ -202,7 +228,7 @@ public class LookupActor extends AbstractActor {
                 else if (result.getResult() == Errors.Error.NO_PRIVILEGE)
                     logger.info(result.getResult().getDescription() + groupName);
                 else if (result.getResult() == Errors.Error.ALREADY_MEMBER)
-                    logger.info(invitee + " is already in " + groupName);
+                    logger.info("{} is already in {}", invitee, groupName);
                 else if (result.getResult() == Errors.Error.SUCCESS) {
                     Future<Object> rt2 = Patterns.ask(inviteeRef, inviteToGroup, timer);
                     Action.Requset answer;
@@ -226,24 +252,24 @@ public class LookupActor extends AbstractActor {
         }
     }
 
-    public void GroupTextMessage(String groupName, String message){
+    public void GroupTextMessage(String groupName, String message) {
         Action.GroupMessage.Text textMsg = new Action.GroupMessage.Text(groupName, this.username, message);
         SendMessage(groupName, textMsg);
     }
 
-    public void GroupFileMessage(String groupName, String sourcefilePath){
+    public void GroupFileMessage(String groupName, String sourcefilePath) {
         Path fileLocation = Paths.get(sourcefilePath);
         try { // need to check if work
             byte[] msg = Files.readAllBytes(fileLocation);
-            Action.GroupMessage.File fileMsg = new Action.GroupMessage.File(groupName, this.username , msg);
+            Action.GroupMessage.File fileMsg = new Action.GroupMessage.File(groupName, this.username, msg);
             SendMessage(groupName, fileMsg);
         } catch (IOException e) {
-            logger.info(sourcefilePath+" does not exist!");
+            logger.info(sourcefilePath + " does not exist!");
         }
 
     }
 
-    private void SendMessage(String groupName, Action.GroupMessage message){
+    private void SendMessage(String groupName, Action.GroupMessage message) {
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, message, timer);
         Action.ActionResult result;
@@ -252,9 +278,9 @@ public class LookupActor extends AbstractActor {
             if (result != null) {
                 if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
                     logger.info(groupName + " " + result.getResult().getDescription());
-                else if(result.getResult() == Errors.Error.NO_SUCH_MEMBER)
-                    logger.info("You ate not part of" + groupName);
-                else if(result.getResult() == Errors.Error.MUTED)
+                else if (result.getResult() == Errors.Error.NO_SUCH_MEMBER)
+                    logger.info("You are not part of " + groupName);
+                else if (result.getResult() == Errors.Error.MUTED)
                     logger.info(result.getResult().getDescription() + "in " + groupName);
             }
         } catch (Exception e) {
@@ -262,35 +288,35 @@ public class LookupActor extends AbstractActor {
         }
     }
 
-    public void RemoveFromGroup(String groupName, String targetusername){
-        Action.RemoveFromGroup removeFromGroup = new Action.RemoveFromGroup(this.username , targetusername, groupName);
+    public void RemoveFromGroup(String groupName, String targetusername) {
+        Action.RemoveFromGroup removeFromGroup = new Action.RemoveFromGroup(this.username, targetusername, groupName);
         AdminMessage(removeFromGroup, groupName, targetusername);
     }
 
-    public void Mute(String groupName, String targetusername, int time){
-        Action.MuteMember muteMember = new Action.MuteMember(this.username, targetusername,groupName, time);
-        AdminMessage(muteMember, groupName ,targetusername);
+    public void Mute(String groupName, String targetusername, int time) {
+        Action.MuteMember muteMember = new Action.MuteMember(this.username, targetusername, groupName, time);
+        AdminMessage(muteMember, groupName, targetusername);
     }
 
-    public void UnMute(String groupName, String targetusername){
+    public void UnMute(String groupName, String targetusername) {
         Action.UnMuteMember unMuteMember = new Action.UnMuteMember(this.username, targetusername, groupName);
-        AdminMessage(unMuteMember, groupName ,targetusername);
+        AdminMessage(unMuteMember, groupName, targetusername);
     }
 
-    public void AddCoAdmin(String groupName, String targetusername){
+    public void AddCoAdmin(String groupName, String targetusername) {
         Action.AddCoAdmin addCoAdmin = new Action.AddCoAdmin(this.username, targetusername, groupName);
-        AdminMessage(addCoAdmin, groupName ,targetusername);
+        AdminMessage(addCoAdmin, groupName, targetusername);
     }
 
-    public void RemoveCoAdmin(String groupName, String targetusername){
+    public void RemoveCoAdmin(String groupName, String targetusername) {
         Action.DeleteCoAdmin deleteCoAdmin = new Action.DeleteCoAdmin(this.username, targetusername, groupName);
-        AdminMessage(deleteCoAdmin, groupName ,targetusername);
+        AdminMessage(deleteCoAdmin, groupName, targetusername);
     }
 
-    private void AdminMessage(Action.Message msg, String groupName, String targetusername){
+    private void AdminMessage(Action.Message msg, String groupName, String targetusername) {
         // check if invitee exist in the server
-        ActorRef ref = getClientActorRef(targetusername);
-        if (ref == null) {
+        ActorRef targetRef = getClientActorRef(targetusername);
+        if (targetRef == null) {
             logger.info(targetusername + " does not exist!");
             return;
         }
@@ -308,7 +334,7 @@ public class LookupActor extends AbstractActor {
                 else if (result.getResult() == Errors.Error.NO_SUCH_MEMBER)
                     logger.info(msg + result.getResult().getDescription());
                 else if (result.getResult() == Errors.Error.SUCCESS)
-                    ref.tell(msg, self());
+                    targetRef.tell(msg, self());
             }
         } catch (Exception e) {
             logger.debug(e.getMessage());

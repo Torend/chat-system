@@ -240,7 +240,7 @@ public class Action {
 
     }
 
-    public class Requset implements MessageResult{
+    public static class Requset implements MessageResult{
         private static final long serialVersionUID = 1L;
         public final String username;
 
@@ -248,13 +248,13 @@ public class Action {
             this.username = username;
         }
 
-        public class Accept extends Requset{
+        public static class Accept extends Requset{
 
             public Accept(String username) {
                 super(username);
             }
         }
-        public class Deny extends Requset{
+        public static class Deny extends Requset{
 
             public Deny(String username) {
                 super(username);
