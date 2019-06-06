@@ -61,9 +61,9 @@ public class Action {
         }
 
         public static class File extends GroupMessage {
-            public final Byte[] message;
+            public final byte[] message;
 
-            public File(String groupName, String senderName, Byte[] message) {
+            public File(String groupName, String senderName, byte[] message) {
                 super(groupName, senderName);
                 this.message = message;
             }
@@ -238,6 +238,28 @@ public class Action {
             this.didFind = didFind;
         }
 
+    }
+
+    public class Requset implements MessageResult{
+        private static final long serialVersionUID = 1L;
+        public final String username;
+
+        public Requset(String username) {
+            this.username = username;
+        }
+
+        public class Accept extends Requset{
+
+            public Accept(String username) {
+                super(username);
+            }
+        }
+        public class Deny extends Requset{
+
+            public Deny(String username) {
+                super(username);
+            }
+        }
     }
 
 

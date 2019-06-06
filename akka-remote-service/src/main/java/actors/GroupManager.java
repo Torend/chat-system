@@ -108,7 +108,7 @@ public class GroupManager extends AbstractActor {
                     if (findGroup == null)
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
                     else {
-                        if (leaveGroup.senderName.equals(findGroup.admin)){
+                        if (leaveGroup.senderName.equals(findGroup.admin)){ // admin leave need to close the group
                             Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName,"none", "admin has closed "+findGroup.groupName+"!");
                             findGroup.groupRouter.route(new Broadcast(msg), self());
                             findGroup.closeGroup();
@@ -129,12 +129,14 @@ public class GroupManager extends AbstractActor {
                     if (findGroup == null)
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
                     else {
-                        if (!findGroup.mutedUsers.containsKey(groupMessage.senderName)) {
-                            findGroup.groupRouter.route(new Broadcast(groupMessage), self());
-                            result = new Action.ActionResult(Errors.Error.SUCCESS);
-                        }
+                        if(!findGroup.activeUsers.containsKey(groupMessage.senderName))
+                            result = new Action.ActionResult(Errors.Error.NO_SUCH_MEMBER);
                         else {
-                            result = new Action.ActionResult(Errors.Error.MUTED);
+                            if (!findGroup.mutedUsers.containsKey(groupMessage.senderName)) {
+                                findGroup.groupRouter.route(new Broadcast(groupMessage), self());
+                                result = new Action.ActionResult(Errors.Error.SUCCESS);
+                            } else
+                                result = new Action.ActionResult(Errors.Error.MUTED); // maybe need to add the time of mute
                         }
                     }
                     sender().tell(result, self());
@@ -150,7 +152,7 @@ public class GroupManager extends AbstractActor {
                         if (inviterName.equals(findGroup.admin) || findGroup.adminsList.containsKey(inviterName)) { //check privilege
                             if (!findGroup.activeUsers.containsKey(inviteeName)) // check if inviteeName is not already member in this group
                                 result = new Action.ActionResult(Errors.Error.SUCCESS);
-                            else result = new Action.ActionResult(Errors.Error.ALREADY_REGISTERED);
+                            else result = new Action.ActionResult(Errors.Error.ALREADY_MEMBER);
                         } else result = new Action.ActionResult(Errors.Error.NO_PRIVILEGE);
                     }
                     sender().tell(result, self());

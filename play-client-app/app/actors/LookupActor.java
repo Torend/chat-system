@@ -1,5 +1,6 @@
 package actors;
 
+import static java.security.AccessController.getContext;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import akka.pattern.AskableActorSelection;
@@ -21,7 +22,10 @@ import akka.actor.AbstractActor;
 import akka.actor.ReceiveTimeout;
 import scala.util.Try;
 
-import javax.inject.Inject;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -57,8 +61,7 @@ public class LookupActor extends AbstractActor {
                         ReceiveTimeout.getInstance(), getContext().dispatcher(), self());
     }
 
-    private ActorRef getClientActorRef(String username)
-    {
+    private ActorRef getClientActorRef(String username) {
         /*
         function that is used to detect other clients we want to send direct messages to.
          */
@@ -69,8 +72,7 @@ public class LookupActor extends AbstractActor {
         try {
             client = (Action.GetClientResult) Await.result(rt, timer.duration());
             timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
-            if(client.didFind)
-            {
+            if (client.didFind) {
                 return getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
             }
         } catch (Exception e) {
@@ -111,16 +113,13 @@ public class LookupActor extends AbstractActor {
                 // send  text message to server actor- works. //TODO: add similar function to send files, add group logic
 
                 ActorRef sendeeRef = Util.getClientActorRef(message.username, getContext(), server, logger);//getClientActorRef(message.username);
-                if(sendeeRef != null)
-                {
-                   // ActorRef sendeeRef = getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
+                if (sendeeRef != null) {
+                    // ActorRef sendeeRef = getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
                     Action.SendText textMessage = new Action.SendText(this.username, message.message);
                     sendeeRef.tell(textMessage, self());
                     //server.tell(message, self());
 
-                }
-                else
-                {
+                } else {
                     //TODO: if client we send message to is not found
                 }
 
@@ -146,4 +145,173 @@ public class LookupActor extends AbstractActor {
             })
             .build();
 
+    public void createGroup(String groupName) {
+        Action.CreateGroup createGroup = new Action.CreateGroup(this.username, groupName, self());
+        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Future<Object> rt = Patterns.ask(server, createGroup, timer);
+        Action.ActionResult result;
+        try {
+            result = (Action.ActionResult) Await.result(rt, timer.duration());
+            if (result != null) {
+                if (result.getResult() == Errors.Error.SUCCESS) {
+                    logger.info(groupName + " created successfully!");
+                } else if (result.getResult() == Errors.Error.DUPLICATE_GROUP) {
+                    logger.info(groupName + " " + result.getResult().getDescription());
+                }
+            }
+        } catch (Exception e) {
+            logger.debug(e.getMessage());
+        }
+    }
+
+    public void leaveGroup(String groupName) {
+        Action.CreateGroup createGroup = new Action.CreateGroup(this.username, groupName, self());
+        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Future<Object> rt = Patterns.ask(server, createGroup, timer);
+        Action.ActionResult result;
+        try {
+            result = (Action.ActionResult) Await.result(rt, timer.duration());
+            if (result != null) {
+                if (result.getResult() == Errors.Error.SUCCESS) {
+                    return;
+                } else if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
+                    logger.info(groupName + " " + result.getResult().getDescription());
+            }
+        } catch (Exception e) {
+            logger.debug(e.getMessage());
+        }
+    }
+
+    public void inviteToGroup(String groupName, String invitee) {
+        // check if invitee exist in the server
+        ActorRef inviteeRef = getClientActorRef(invitee);
+        if (inviteeRef == null) {
+            logger.info(invitee + " does not exist!");
+            return;
+        }
+
+        Action.InviteToGroup inviteToGroup = new Action.InviteToGroup(this.username, invitee, groupName);
+        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Future<Object> rt = Patterns.ask(server, inviteToGroup, timer);
+        Action.ActionResult result;
+        try {
+            result = (Action.ActionResult) Await.result(rt, timer.duration());
+            if (result != null) {
+                if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
+                    logger.info(groupName + " " + result.getResult().getDescription());
+                else if (result.getResult() == Errors.Error.NO_PRIVILEGE)
+                    logger.info(result.getResult().getDescription() + groupName);
+                else if (result.getResult() == Errors.Error.ALREADY_MEMBER)
+                    logger.info(invitee + " is already in " + groupName);
+                else if (result.getResult() == Errors.Error.SUCCESS) {
+                    Future<Object> rt2 = Patterns.ask(inviteeRef, inviteToGroup, timer);
+                    Action.Requset answer;
+                    try {
+                        answer = (Action.Requset) Await.result(rt, timer.duration());
+                        if (answer != null) {
+                            if (answer instanceof Action.Requset.Accept) { // accept the invitation
+                                server.tell(new Action.AddToGroup(inviteeRef, invitee, groupName), self()); // add the invitee to group
+                                inviteeRef.tell(new Action.SendText(this.username, "Welcome to " + groupName), self()); // send the invitee welcome message
+                            } else { // deny the invitation
+                                logger.info(invitee + " deny the invitation"); // not sure if we need to print this
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.debug(e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.debug(e.getMessage());
+        }
+    }
+
+    public void GroupTextMessage(String groupName, String message){
+        Action.GroupMessage.Text textMsg = new Action.GroupMessage.Text(groupName, this.username, message);
+        SendMessage(groupName, textMsg);
+    }
+
+    public void GroupFileMessage(String groupName, String sourcefilePath){
+        Path fileLocation = Paths.get(sourcefilePath);
+        try { // need to check if work
+            byte[] msg = Files.readAllBytes(fileLocation);
+            Action.GroupMessage.File fileMsg = new Action.GroupMessage.File(groupName, this.username , msg);
+            SendMessage(groupName, fileMsg);
+        } catch (IOException e) {
+            logger.info(sourcefilePath+" does not exist!");
+        }
+
+    }
+
+    private void SendMessage(String groupName, Action.GroupMessage message){
+        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Future<Object> rt = Patterns.ask(server, message, timer);
+        Action.ActionResult result;
+        try {
+            result = (Action.ActionResult) Await.result(rt, timer.duration());
+            if (result != null) {
+                if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
+                    logger.info(groupName + " " + result.getResult().getDescription());
+                else if(result.getResult() == Errors.Error.NO_SUCH_MEMBER)
+                    logger.info("You ate not part of" + groupName);
+                else if(result.getResult() == Errors.Error.MUTED)
+                    logger.info(result.getResult().getDescription() + "in " + groupName);
+            }
+        } catch (Exception e) {
+            logger.debug(e.getMessage());
+        }
+    }
+
+    public void RemoveFromGroup(String groupName, String targetusername){
+        Action.RemoveFromGroup removeFromGroup = new Action.RemoveFromGroup(this.username , targetusername, groupName);
+        AdminMessage(removeFromGroup, groupName, targetusername);
+    }
+
+    public void Mute(String groupName, String targetusername, int time){
+        Action.MuteMember muteMember = new Action.MuteMember(this.username, targetusername,groupName, time);
+        AdminMessage(muteMember, groupName ,targetusername);
+    }
+
+    public void UnMute(String groupName, String targetusername){
+        Action.UnMuteMember unMuteMember = new Action.UnMuteMember(this.username, targetusername, groupName);
+        AdminMessage(unMuteMember, groupName ,targetusername);
+    }
+
+    public void AddCoAdmin(String groupName, String targetusername){
+        Action.AddCoAdmin addCoAdmin = new Action.AddCoAdmin(this.username, targetusername, groupName);
+        AdminMessage(addCoAdmin, groupName ,targetusername);
+    }
+
+    public void RemoveCoAdmin(String groupName, String targetusername){
+        Action.DeleteCoAdmin deleteCoAdmin = new Action.DeleteCoAdmin(this.username, targetusername, groupName);
+        AdminMessage(deleteCoAdmin, groupName ,targetusername);
+    }
+
+    private void AdminMessage(Action.Message msg, String groupName, String targetusername){
+        // check if invitee exist in the server
+        ActorRef ref = getClientActorRef(targetusername);
+        if (ref == null) {
+            logger.info(targetusername + " does not exist!");
+            return;
+        }
+
+        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Future<Object> rt = Patterns.ask(server, msg, timer);
+
+        try {
+            Action.ActionResult result = (Action.ActionResult) Await.result(rt, timer.duration());
+            if (result != null) {
+                if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
+                    logger.info(groupName + " " + result.getResult().getDescription());
+                else if (result.getResult() == Errors.Error.NO_PRIVILEGE)
+                    logger.info(result.getResult().getDescription() + groupName);
+                else if (result.getResult() == Errors.Error.NO_SUCH_MEMBER)
+                    logger.info(msg + result.getResult().getDescription());
+                else if (result.getResult() == Errors.Error.SUCCESS)
+                    ref.tell(msg, self());
+            }
+        } catch (Exception e) {
+            logger.debug(e.getMessage());
+        }
+    }
 }
