@@ -1,8 +1,10 @@
 package actors;
 
 import akka.actor.ActorRef;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 
 import java.io.Serializable;
+import java.util.List;
 
 /*
 this is where all the action messages are defined.
@@ -29,10 +31,13 @@ public class Action {
 
     public static class GetOutput implements Message {
         private static final long serialVersionUID = 1L;
-        public final String text; // TODO: turn into list of lines to print
+        public final Boolean hasContent;
+        public final List<String> lines;
 
-        public GetOutput(String text) {
-            this.text = text;
+        public GetOutput(List<String> lines, Boolean hasContent) {
+            this.lines = lines;
+            this.hasContent = hasContent;
+
         }
 
     }

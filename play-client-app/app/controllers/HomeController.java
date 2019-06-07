@@ -36,44 +36,51 @@ public class HomeController extends Controller {
         this.lookupActor = lookupActor;
     }
 
-    private String handleOutput()
-    {
+    private String handleOutput() {
+        try {
+            TimeUnit.SECONDS.sleep(7);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         Action.AskOutput asker = new Action.AskOutput();
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(this.lookupActor, asker, timer);
         Action.GetOutput output;
+        String toPrint = "";
         try {
             output = (Action.GetOutput) Await.result(rt, timer.duration());
-            timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
-            //TODO: check if there is content and print accordingly
+            if (output.hasContent) {
+                for (int i = 0; i < output.lines.size(); i++) {
+                    toPrint.concat(output.lines.get(i));
+                }
+                return toPrint;
+            }
 
         } catch (Exception e) {
 
-            return null;
+            return "";
         }
-        return null;
-
+        return "";
 
 
     }
 
-    private void handleInput(String text)
-    {
+    private void handleInput(String text) {
         lookupActor.tell(new Action.SendText("fucker", text), null);
     }
 
     public WebSocket socket() {
-
         return WebSocket.Text.accept(
                 request -> {
-                    // Log events to the console
-                    Sink<String, ?> in = Sink.foreach(this::handleInput);
-
-                    // Send a single 'Hello!' message and then leave the socket open
-                    Source<String, ?> out = Source.repeat(handleOutput()).concat(Source.maybe());
-                    return Flow.fromSinkAndSource(in, out);
+                    return Flow.<String>create()
+                            .map(
+                                    msg -> {
+                                        handleInput(msg);
+                                        return "I received your message: " + msg;
+                                    });
                 });
     }
+
     /**
      * An action that renders an HTML page with a welcome message.
      * The configuration in the <code>routes</code> file means that
