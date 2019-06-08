@@ -27,6 +27,15 @@ public class Action {
 
     }
 
+    public static class FrameworkCommand implements Message{
+        private static final long serialVersionUID = 1L;
+        public final String command;
+
+        public FrameworkCommand(String command) {
+            this.command = command;
+        }
+    }
+
     public static class SendMessage implements Message {
         private static final long serialVersionUID = 1L;
         public final String username;
@@ -38,6 +47,8 @@ public class Action {
         }
 
     }
+
+
     public static class GroupMessage implements Message {
         private static final long serialVersionUID = 1L;
         public final String groupName;
@@ -203,6 +214,18 @@ public class Action {
 
         public SendText(String username, String message) {
             this.fromUsername = username;
+            this.message = message;
+        }
+
+    }
+
+    public static class SendFile implements Message {
+        private static final long serialVersionUID = 1L;
+        public final String fromUsername;
+        public final byte[] message;
+
+        public SendFile(String fromUsername, byte[] message) {
+            this.fromUsername = fromUsername;
             this.message = message;
         }
 
