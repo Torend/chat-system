@@ -1,12 +1,16 @@
 package controllers;
 
 import actors.Action;
+import actors.LookupActor;
+import actors.MyWebSocketActor;
 import actors.Op;
+import akka.NotUsed;
 import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.japi.Pair;
 import akka.pattern.Patterns;
-import akka.stream.javadsl.Flow;
-import akka.stream.javadsl.Sink;
-import akka.stream.javadsl.Source;
+import akka.stream.Materializer;
+import akka.stream.javadsl.*;
 import akka.util.Timeout;
 import play.mvc.WebSocket;
 import play.data.DynamicForm;
@@ -31,9 +35,23 @@ public class HomeController extends Controller {
 
     private final ActorRef lookupActor;
 
+    private final ActorSystem actorSystem;
+    private final Materializer materializer;
+//    private final Flow<String, String, NotUsed> userFlow;
+
     @Inject
-    public HomeController(@Named("lookup-actor") ActorRef lookupActor) {
-        this.lookupActor = lookupActor;
+    public HomeController(ActorSystem actorSystem, Materializer materializer){//@Named("lookup-actor") ActorRef lookupActor) {
+        this.lookupActor = null;
+        this.actorSystem = actorSystem;
+        this.materializer = materializer;
+        //this.lookupActor  = null;
+//        Source<String, Sink<String, NotUsed>> source = MergeHub.of(String.class);
+//        Sink<String, Source<String, NotUsed>> sink = BroadcastHub.of(String.class);
+//
+//        Pair<Sink<String, NotUsed>, Source<String, NotUsed>> sinkSourcePair = source.toMat(sink, Keep.both()).run(mat);
+//        Sink<String, NotUsed> chatSink = sinkSourcePair.first();
+//        Source<String, NotUsed> chatSource = sinkSourcePair.second();
+//        this.userFlow = Flow.fromSinkAndSource(chatSink, chatSource);
     }
 
     private String handleOutput() {
@@ -71,15 +89,32 @@ public class HomeController extends Controller {
 
     public WebSocket socket() {
         return WebSocket.Text.accept(
-                request -> {
-                    return Flow.<String>create()
-                            .map(
-                                    msg -> {
-                                        handleInput(msg);
-                                        return "I received your message: " + msg;
-                                    });
-                });
+                request -> ActorFlow.actorRef(LookupActor::props, actorSystem, materializer));
     }
+
+//    public WebSocket socket() {
+//
+//        return WebSocket.Text.accept(
+//                request -> {
+//                    // Log events to the console
+//                    Sink<String, ?> in = Sink.foreach(System.out::println);
+//
+//                    // Send a single 'Hello!' message and then leave the socket open
+//                    Source<String, ?> out = Source.single("Hello!").concat(Source.maybe());
+//                    Source.tick()
+//                    return Flow.fromSinkAndSource(in, out);
+//                });
+//
+//        return WebSocket.Text.accept(
+//                request -> {
+//                    return Flow.<String>create()
+//                            .map(
+//                                    msg -> {
+//                                        handleInput(msg);
+//                                        return "I received your message: " + msg;
+//                                    });
+//                });
+//    }
 
     /**
      * An action that renders an HTML page with a welcome message.
@@ -94,8 +129,8 @@ public class HomeController extends Controller {
          */
         Http.Request request = request();
         String url = routes.HomeController.socket().webSocketURL(request);
-        lookupActor.tell(new Action.Connect("fucker"), null);
-        lookupActor.tell(new Action.SendText("fucker", "fuck"), null);
+        //lookupActor.tell(new Action.Connect("fucker"), null);
+        //lookupActor.tell(new Action.SendText("fucker", "fuck"), null);
         return ok(views.html.index.render(url));
     }
 

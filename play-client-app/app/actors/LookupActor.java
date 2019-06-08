@@ -1,7 +1,9 @@
 package actors;
 
+import static java.lang.System.out;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import akka.actor.*;
 import akka.pattern.AskableActorSelection;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
@@ -13,12 +15,6 @@ import scala.concurrent.Await;
 import scala.concurrent.Awaitable;
 import scala.concurrent.duration.Duration;
 import scala.concurrent.Future;
-import akka.actor.ActorRef;
-import akka.actor.ActorIdentity;
-import akka.actor.Identify;
-import akka.actor.Terminated;
-import akka.actor.AbstractActor;
-import akka.actor.ReceiveTimeout;
 import scala.util.Try;
 
 import javax.inject.Inject;
@@ -32,19 +28,27 @@ does all the messaging functionality.
  */
 public class LookupActor extends AbstractActor {
 
+    public static Props props(ActorRef out) {
+        return Props.create(LookupActor.class, out);
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(LookupActor.class);
 
     private final String path;
     private ActorRef server = null;
+    private ActorRef output = null;
     public String username;
 
-    @Inject
-    public LookupActor(Config config) {
-        this(config.getString("lookup.path"));
-    }
+//    @Inject
+//    public LookupActor(Config config) {
+//        this(config.getString("lookup.path"));
+//    }
 
-    public LookupActor(String path) {
-        this.path = path;
+    public LookupActor(ActorRef out) {
+        //this.path = config.getString("lookup.path");
+        this.path = context().system().settings().config().getString("lookup.path");
+        this.output = out;
+        logger.info("PATHO: {} {}", path, self().path().toString());
         sendIdentifyRequest();
     }
 
@@ -101,7 +105,9 @@ public class LookupActor extends AbstractActor {
     }
 
     Receive active = receiveBuilder()
-            .match(Action.Connect.class, connect -> {
+            .match(String.class, message -> {
+                output.tell("I received your message: " + message, self());
+            }).match(Action.Connect.class, connect -> {
                 // send message to server actor
                 logger.info("Connecting");
                 this.username = connect.username;
@@ -110,7 +116,7 @@ public class LookupActor extends AbstractActor {
             })
             .match(Action.SendMessage.class, message -> {
                 // send  text message to server actor- works. //TODO: add similar function to send files, add group logic
-
+                logger.info("SENDO: {} {}", message.message, message.username);
                 ActorRef sendeeRef = Util.getClientActorRef(message.username, getContext(), server, logger);//getClientActorRef(message.username);
                 if(sendeeRef != null)
                 {

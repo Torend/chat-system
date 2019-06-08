@@ -9,6 +9,6 @@ public class ActorsModule extends AbstractModule implements AkkaGuiceSupport {
     protected void configure() {
         // bindActor will bind LookupActor as an eager singleton. That is the
         // default behavior for that method.
-        bindActor(LookupActor.class, "lookup-actor");
+        //bindActor(LookupActor.class, "lookup-actor");
     }
 }
