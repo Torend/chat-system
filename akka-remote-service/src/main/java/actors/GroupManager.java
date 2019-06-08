@@ -13,19 +13,17 @@ import java.util.Map;
 class GroupData {
     /*
     this is the class that represent the data that the server uses to track a group
-    TODO: complete the data structure. should be able to know who's the main admin, who's co admin, who's muted, who's invited and the other users.
      */
     //public ActorRef groupRef; // this will be the router ref
-    public String groupName;
-    public String admin;
-    public Map<String, ActorRef> adminsList;
-    public Map<String, ActorRef> activeUsers;
-    ;
-    public HashMap<String, Duration> mutedUsers;
-    public Router groupRouter;
+    String groupName;
+    String admin;
+    Map<String, ActorRef> adminsList;
+    Map<String, ActorRef> activeUsers;
+    HashMap<String, Duration> mutedUsers;
+    Router groupRouter;
 
     //List<Routee> routees;
-    public GroupData(Router groupRouter, String groupName, String admin, ActorRef adminRef) {
+    GroupData(Router groupRouter, String groupName, String admin, ActorRef adminRef) {
         this.groupRouter = groupRouter;
         this.groupName = groupName;
         this.admin = admin;
@@ -33,22 +31,26 @@ class GroupData {
         this.mutedUsers = new HashMap<String, Duration>();
     }
 
-    public void addUser(String username, ActorRef actorRef) {
+    void addUser(String username, ActorRef actorRef) {
         this.activeUsers.put(username, actorRef);
     }
 
-    public void deleteUser(String username) {
+    void deleteUser(String username) {
         this.groupRouter.removeRoutee(activeUsers.get(username));
         this.activeUsers.remove(username);
         this.adminsList.remove(username);
-
     }
 
-    public void addCoAdmin(String username, ActorRef actorRef) {
+    void closeGroup() {
+        adminsList.clear();
+        activeUsers.clear();
+    }
+
+    void addCoAdmin(String username, ActorRef actorRef) {
         this.adminsList.put(username, actorRef);
     }
 
-    public void deleteCoAdmin(String username) {
+    void deleteCoAdmin(String username) {
         this.adminsList.remove(username);
     }
 }
@@ -56,7 +58,6 @@ class GroupData {
 /**
  * This is the server.GroupManagementActor, a part of the server that creates groups actors and stores them.
  * Only responsible for group management and not a part of sending messages.
- * TODO: implement the entire groups management
  * the flow should be as such-
  * the groups DB will hold each group. sending messages to a group is done via a router.
  * to add a user just use the router adding functions.
@@ -79,39 +80,53 @@ public class GroupManager extends AbstractActor {
                     GroupData findGroup = this.groupsData.get(groupCreation.groupName);
                     Action.ActionResult result;
                     if (findGroup == null) {
-                        //ActorRef newAdmin = getContext().actorOf(GroupUserActor.class, "")
-                        //List<String> paths = Arrays.asList();
-                        //Props newAdminProps =  (Props.create(GroupUserActor.class));
-                        //ActorRef newAdmin = getContext().actorOf(newAdminProps, "");
                         List<Routee> routees = new ArrayList<Routee>();
                         routees.add(new ActorRefRoutee(groupCreation.adminRef));
                         Router router = new Router(new RoundRobinRoutingLogic(), routees);
                         GroupData newGroup = new GroupData(router, groupCreation.groupName, groupCreation.adminName, groupCreation.adminRef);
                         groupsData.put(newGroup.groupName, newGroup);
                         newGroup.addUser(groupCreation.adminName, groupCreation.adminRef);
-                        // List<String> adminPath = Arrays.asList(groupCreation.adminRef.path().toSerializationFormat());
-                        //ActorRef newGroupRouter = getContext().actorOf(new RoundRobinGroup(adminPath).props(), groupCreation.groupName);//context().actorOf(Props.create(GroupActor.class), groupCreation.groupName);
-                        //GroupData newGroup = new GroupData(newGroupRouter, groupCreation.groupName, groupCreation.adminName, groupCreation.adminRef);
-                        //groupsData.put(newGroup.groupName, newGroup);
-                        //newGroupRouter.tell();
                         result = new Action.ActionResult(Errors.Error.SUCCESS);
                     }
                     // in case we already hav a group with that name
                     else result = new Action.ActionResult(Errors.Error.DUPLICATE_GROUP);
                     sender().tell(result, self());
                 })
-                .match(Action.GroupTextMessage.class, groupTextMessage -> {
+                .match(Action.LeaveGroup.class, leaveGroup -> {
                     Action.ActionResult result;
-                    GroupData findGroup = this.groupsData.get(groupTextMessage.groupName);
+                    GroupData findGroup = this.groupsData.get(leaveGroup.groupName);
                     if (findGroup == null)
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
                     else {
-                        if (!findGroup.mutedUsers.containsKey(groupTextMessage.senderName)) {
-                            findGroup.groupRouter.route(new Broadcast(groupTextMessage), self());
+                        if (leaveGroup.senderName.equals(findGroup.admin)) { // admin leave need to close the group
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "none", "admin has closed " + findGroup.groupName + "!");
+                            findGroup.groupRouter.route(new Broadcast(msg), self());
+                            findGroup.closeGroup();
+                            groupsData.remove(leaveGroup.groupName);
+                            result = new Action.ActionResult(Errors.Error.SUCCESS);
+                        } else {
+                            findGroup.deleteUser(leaveGroup.senderName);
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "none", leaveGroup.senderName + " has left " + findGroup.groupName + "!");
+                            findGroup.groupRouter.route(new Broadcast(msg), self());
                             result = new Action.ActionResult(Errors.Error.SUCCESS);
                         }
+                    }
+                    sender().tell(result, self());
+                })
+                .match(Action.GroupMessage.class, groupMessage -> {
+                    Action.ActionResult result;
+                    GroupData findGroup = this.groupsData.get(groupMessage.groupName);
+                    if (findGroup == null)
+                        result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
+                    else {
+                        if (!findGroup.activeUsers.containsKey(groupMessage.senderName))
+                            result = new Action.ActionResult(Errors.Error.NO_SUCH_MEMBER);
                         else {
-                            result = new Action.ActionResult(Errors.Error.MUTED);
+                            if (!findGroup.mutedUsers.containsKey(groupMessage.senderName)) {
+                                findGroup.groupRouter.route(new Broadcast(groupMessage), self());
+                                result = new Action.ActionResult(Errors.Error.SUCCESS);
+                            } else
+                                result = new Action.ActionResult(Errors.Error.MUTED); // maybe need to add the time of mute somehow
                         }
                     }
                     sender().tell(result, self());
@@ -127,7 +142,7 @@ public class GroupManager extends AbstractActor {
                         if (inviterName.equals(findGroup.admin) || findGroup.adminsList.containsKey(inviterName)) { //check privilege
                             if (!findGroup.activeUsers.containsKey(inviteeName)) // check if inviteeName is not already member in this group
                                 result = new Action.ActionResult(Errors.Error.SUCCESS);
-                            else result = new Action.ActionResult(Errors.Error.ALREADY_REGISTERED);
+                            else result = new Action.ActionResult(Errors.Error.ALREADY_MEMBER);
                         } else result = new Action.ActionResult(Errors.Error.NO_PRIVILEGE);
                     }
                     sender().tell(result, self());

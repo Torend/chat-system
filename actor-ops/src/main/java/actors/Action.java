@@ -53,6 +53,15 @@ public class Action {
 
     }
 
+    public static class FrameworkCommand implements Message{
+        private static final long serialVersionUID = 1L;
+        public final String command;
+
+        public FrameworkCommand(String command) {
+            this.command = command;
+        }
+    }
+
     public static class SendMessage implements Message {
         private static final long serialVersionUID = 1L;
         public final String username;
@@ -65,18 +74,37 @@ public class Action {
 
     }
 
-    public static class GroupTextMessage implements Message {
+
+    public static class GroupMessage implements Message {
         private static final long serialVersionUID = 1L;
         public final String groupName;
         public final String senderName;
-        public final Message message;
 
-        public GroupTextMessage(String groupName, String senderName, Message message) {
+        public GroupMessage(String groupName, String senderName) {
             this.groupName = groupName;
             this.senderName = senderName;
-            this.message = message;
         }
 
+
+        public static class Text extends GroupMessage {
+
+            public final String message;
+
+            public Text(String groupName, String senderName, String message) {
+                super(groupName, senderName);
+                this.message = message;
+            }
+
+        }
+
+        public static class File extends GroupMessage {
+            public final byte[] message;
+
+            public File(String groupName, String senderName, byte[] message) {
+                super(groupName, senderName);
+                this.message = message;
+            }
+        }
     }
 
     public static class CreateGroup implements Message {
@@ -90,6 +118,16 @@ public class Action {
             this.adminRef = adminRef;
         }
 
+    }
+
+    public static class LeaveGroup implements Message {
+        public final String senderName;
+        public final String groupName;
+
+        public LeaveGroup(String senderName, String groupName) {
+            this.senderName = senderName;
+            this.groupName = groupName;
+        }
     }
 
     public static class InviteToGroup implements Message {
@@ -186,7 +224,7 @@ public class Action {
     }
 
 
-    public static class MutingTimeUp implements Message{
+    public static class MutingTimeUp implements Message {
         public final String groupName;
 
         public MutingTimeUp(String groupName) {
@@ -202,6 +240,18 @@ public class Action {
 
         public SendText(String username, String message) {
             this.fromUsername = username;
+            this.message = message;
+        }
+
+    }
+
+    public static class SendFile implements Message {
+        private static final long serialVersionUID = 1L;
+        public final String fromUsername;
+        public final byte[] message;
+
+        public SendFile(String fromUsername, byte[] message) {
+            this.fromUsername = fromUsername;
             this.message = message;
         }
 
@@ -237,6 +287,28 @@ public class Action {
             this.didFind = didFind;
         }
 
+    }
+
+    public static class Requset implements MessageResult{
+        private static final long serialVersionUID = 1L;
+        public final String username;
+
+        public Requset(String username) {
+            this.username = username;
+        }
+
+        public static class Accept extends Requset{
+
+            public Accept(String username) {
+                super(username);
+            }
+        }
+        public static class Deny extends Requset{
+
+            public Deny(String username) {
+                super(username);
+            }
+        }
     }
 
 

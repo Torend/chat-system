@@ -8,11 +8,11 @@ public class Errors {
         DUPLICATE_USER(2, "is in use!"),
         DUPLICATE_GROUP(3, "already exists!"),
         NO_SUCH_GROUP(4, "group does not exist!"),
-        NO_PRIVILEGE (5, "no privilege!"),
-        ALREADY_REGISTERED(6, "already registered in the group"),
+        NO_PRIVILEGE (5, "You are neither an admin nor a co-admin of "),
+        ALREADY_MEMBER(6, "already registered in the group"),
         NO_SUCH_MEMBER(7, "member does not exist!"),
         NOT_MUTED(8, "member does not muted!"),
-        MUTED(9, "you are muted");
+        MUTED(9, "You are muted");
 
 
 
