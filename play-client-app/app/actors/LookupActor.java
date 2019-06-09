@@ -53,6 +53,7 @@ public class LookupActor extends AbstractActor
     private ActorRef output = null;
     public String username;
 
+
 //    @Inject
 //    public LookupActor(Config config) {
 //        this(config.getString("lookup.path"));
@@ -116,6 +117,7 @@ public class LookupActor extends AbstractActor
 
     @Override
     public Receive createReceive() {
+        String toPrint = "";
         return receiveBuilder()
                 .match(ActorIdentity.class, identity ->
                 {
@@ -232,12 +234,25 @@ public class LookupActor extends AbstractActor
             })
 
             .match(Action.InviteToGroup.class, invitation -> {
-                logger.info("You have been invited to {}, Accept?", invitation.groupName);
+                String toPrint = String.format("You have been invited to %s, Accept?", invitation.groupName);
+                logger.info(toPrint);
                 //TODO <targetusername> may accept [Yes] or deny [No] the invite. Response will be sent back to <sourceusername<
                 String response = ""; // <--- get response from the user
+                Action.Connect conMessage = new Action.Connect(this.username, self());
+                Timeout timer = new Timeout(Duration.create(60, TimeUnit.SECONDS));
+                Future<Object> rt = Patterns.ask(output, toPrint, timer);
+                String result = "";
+                try {
+                    result = (String) Await.result(rt, timer.duration());
+                    logger.info(result);
+                }
+                catch (Exception e)
+                {
+                    logger.debug(e.getMessage());
+                }
                 ActorRef inviterRef = getClientActorRef(invitation.inviterName);
                 assert inviterRef != null;
-                if (response.equals("Yes"))
+                if (result.equals("Yes"))
                 {
                     inviterRef.tell(new Action.Requset.Accept(this.username), self());
                 }
@@ -501,6 +516,7 @@ public class LookupActor extends AbstractActor
                     toPrint = groupName + " " + result.getResult().getDescription();
                     logger.info(toPrint);
                 }
+                output.tell(toPrint, self());
             }
         }
         catch (Exception e)
@@ -549,7 +565,7 @@ public class LookupActor extends AbstractActor
         }
 
         Action.InviteToGroup inviteToGroup = new Action.InviteToGroup(this.username, invitee, groupName);
-        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, inviteToGroup, timer);
         Action.ActionResult result;
         try

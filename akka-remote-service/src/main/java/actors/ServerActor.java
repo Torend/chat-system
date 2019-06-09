@@ -96,6 +96,41 @@ public class ServerActor extends AbstractActor {
                     //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
+                .match(Action.InviteToGroup.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
+                .match(Action.AddToGroup.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
+                .match(Action.RemoveFromGroup.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
+                .match(Action.AddCoAdmin.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
+                .match(Action.DeleteCoAdmin.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
+                .match(Action.MuteMember.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
+                .match(Action.UnMuteMember.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
 
 
                 .build();
