@@ -144,7 +144,14 @@ public class LookupActor extends AbstractActor
             .match(String.class, message ->
             {
                 //output.tell("I received your message: " + message, self());
-                parseCommand(message);
+                try{
+                    parseCommand(message);
+                }
+                catch (Exception e)
+                {
+                    output.tell("Bad input", self()); //TODO: different string?
+                }
+
             }).match(Action.Connect.class, connect ->
             {
                 // send message to server actor
@@ -221,17 +228,24 @@ public class LookupActor extends AbstractActor
                 else if (groupMessage instanceof Action.GroupMessage.File)
                 { // GroupMessage.File
                     String currentPath = System.getProperty("user.dir");
-                    try (FileOutputStream stream = new FileOutputStream(currentPath))
-                    {
+                    try{
+
+                        //create a temp file
+                        File temp = File.createTempFile("tempfile", ".tmp");
+
+                        //write it
+                        FileOutputStream stream = new FileOutputStream(temp);
                         stream.write(((Action.GroupMessage.File) groupMessage).message);
-                    }
-                    catch (IOException e)
-                    {
+                        stream.close();
+                        toPrint = String.format("[%s][%s][%s] File received: %s",time, groupMessage.groupName, groupMessage.senderName,  temp.getAbsolutePath());
+                        output.tell(toPrint, self());
+                        logger.info(toPrint);
+
+                    }catch(IOException e) {
+
                         e.printStackTrace();
+
                     }
-                    toPrint = String.format("[%s][%s][%s] File received: %s",time, groupMessage.groupName, groupMessage.senderName, currentPath);
-                    output.tell(toPrint, self());
-                    logger.info(toPrint);
                 }
             })
             .match(Action.InviteToGroup.class, invitation -> {
@@ -657,12 +671,13 @@ public class LookupActor extends AbstractActor
 
     private void sendMessage(String groupName, Action.GroupMessage message)
     {
-        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Timeout timer = new Timeout(Duration.create(10, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, message, timer);
         Action.ActionResult result;
         String toPrint = "" ;
         try
         {
+            timer = new Timeout(Duration.create(10, TimeUnit.SECONDS));
             result = (Action.ActionResult) Await.result(rt, timer.duration());
             if (result != null)
             {
