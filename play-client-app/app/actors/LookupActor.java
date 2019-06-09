@@ -229,6 +229,8 @@ public class LookupActor extends AbstractActor
             })
             .match(Action.InviteToGroup.class, invitation -> {
                 logger.info("You have been invited to {}, Accept?", invitation.groupName);
+                String toPrint = String.format("You have been invited to %s, Accept?", invitation.groupName);
+                output.tell(toPrint, self());
                 inviteQueue.add(invitation);
             })
             .match(Action.RemoveFromGroup.class, removeFromGroup ->
@@ -266,6 +268,18 @@ public class LookupActor extends AbstractActor
                 String toPrint = String.format("You have been demoted to user in %s!", deleteCoAdmin.groupName);
                 output.tell(toPrint, self());
                 logger.info(toPrint);
+            })
+            .match(Action.Requset.Accept.class, acceptedGroup ->
+            {
+                //String toPrint = String.format("You have been demoted to user in %s!", deleteCoAdmin.groupName);
+                server.tell(new Action.AddToGroup(sender(), acceptedGroup.username, acceptedGroup.groupName), self()); // add the invitee to group
+                sender().tell(new Action.SendText(this.username, "Welcome to " + acceptedGroup.groupName), self()); // send the invitee welcome message
+                //output.tell(toPrint, self());
+                //logger.info(toPrint);
+            })
+            .match(Action.Requset.Deny.class, acceptedGroup ->
+            {
+                output.tell( acceptedGroup.username + " deny the invitation", self()); //TODO: not sure if nned to print
             })
             .match(Terminated.class, terminated ->
             {
@@ -356,14 +370,14 @@ public class LookupActor extends AbstractActor
                 Action.InviteToGroup invitation = inviteQueue.remove();
                 ActorRef inviterRef = getClientActorRef(invitation.inviterName);
                 assert inviterRef != null;
-                inviterRef.tell(new Action.Requset.Accept(this.username), self());
+                inviterRef.tell(new Action.Requset.Accept(this.username, invitation.groupName), self());
                 break;
             }
             case "NO": {
                 Action.InviteToGroup invitation = inviteQueue.remove();
                 ActorRef inviterRef = getClientActorRef(invitation.inviterName);
                 assert inviterRef != null;
-                inviterRef.tell(new Action.Requset.Deny(this.username), self());
+                inviterRef.tell(new Action.Requset.Deny(this.username, invitation.groupName), self());
                 break;
             }
             default:
@@ -571,29 +585,31 @@ public class LookupActor extends AbstractActor
                 }
                 else if (result.getResult() == Errors.Error.SUCCESS)
                 {
-                    timer = new Timeout(Duration.create(60, TimeUnit.SECONDS));
-                    Future<Object> rt2 = Patterns.ask(inviteeRef, inviteToGroup, timer);
-                    Action.Requset answer;
-                    try
-                    {
-                        answer = (Action.Requset) Await.result(rt2, timer.duration());
-                        if (answer != null)
-                        {
-                            if (answer instanceof Action.Requset.Accept)
-                            { // accept the invitation
-                                server.tell(new Action.AddToGroup(inviteeRef, invitee, groupName), self()); // add the invitee to group
-                                inviteeRef.tell(new Action.SendText(this.username, "Welcome to " + groupName), self()); // send the invitee welcome message
-                            }
-                            else
-                                { // deny the invitation
-                                toPrint =  invitee + " deny the invitation"; //TODO: not sure if we need to print this
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        logger.debug(e.getMessage());
-                    }
+                    inviteToGroup = new Action.InviteToGroup(this.username, invitee, groupName); //TODO - i think it should be done this way since messages cannot be sent twice
+                    inviteeRef.tell(inviteToGroup, self());
+//                    timer = new Timeout(Duration.create(60, TimeUnit.SECONDS));
+//                    Future<Object> rt2 = Patterns.ask(inviteeRef, inviteToGroup, timer);
+//                    Action.Requset answer;
+//                    try
+//                    {
+//                        answer = (Action.Requset) Await.result(rt2, timer.duration());
+//                        if (answer != null)
+//                        {
+//                            if (answer instanceof Action.Requset.Accept)
+//                            { // accept the invitation
+//                                server.tell(new Action.AddToGroup(inviteeRef, invitee, groupName), self()); // add the invitee to group
+//                                inviteeRef.tell(new Action.SendText(this.username, "Welcome to " + groupName), self()); // send the invitee welcome message
+//                            }
+//                            else
+//                                { // deny the invitation
+//                                toPrint =  invitee + " deny the invitation"; //TODO: not sure if we need to print this
+//                            }
+//                        }
+//                    }
+//                    catch (Exception e)
+//                    {
+//                        logger.debug(e.getMessage());
+//                    }
                 }
             }
         }

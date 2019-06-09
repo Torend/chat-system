@@ -186,7 +186,7 @@ public class GroupManager extends AbstractActor {
                 })
                 .match(Action.AddToGroup.class, groupAddition -> {
                     GroupData findGroup = this.groupsData.get(groupAddition.groupName);
-                    findGroup.groupRouter.addRoutee(groupAddition.inviteeRef);
+                    findGroup.groupRouter = findGroup.groupRouter.addRoutee(groupAddition.inviteeRef);
                     findGroup.addUser(groupAddition.inviteeName, groupAddition.inviteeRef);
                 })
                 .match(Action.RemoveFromGroup.class, groupRemoval -> {

@@ -293,21 +293,23 @@ public class Action {
     public static class Requset implements MessageResult{
         private static final long serialVersionUID = 1L;
         public final String username;
+        public final String groupName;
 
-        public Requset(String username) {
+        public Requset(String username, String groupName) {
             this.username = username;
+            this.groupName = groupName;
         }
 
         public static class Accept extends Requset{
 
-            public Accept(String username) {
-                super(username);
+            public Accept(String username, String groupName) {
+                super(username, groupName);
             }
         }
         public static class Deny extends Requset{
 
-            public Deny(String username) {
-                super(username);
+            public Deny(String username, String groupName) {
+                super(username, groupName);
             }
         }
     }
