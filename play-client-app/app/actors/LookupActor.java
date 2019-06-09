@@ -22,8 +22,7 @@ import akka.actor.Terminated;
 import akka.actor.AbstractActor;
 import akka.actor.ReceiveTimeout;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -169,17 +168,25 @@ public class LookupActor extends AbstractActor
             {
                 String time = currentTime();
                 String currentPath = System.getProperty("user.dir");
-                try (FileOutputStream stream = new FileOutputStream(currentPath))
-                {
+                try{
+
+                    //create a temp file
+                    File temp = File.createTempFile("tempfile", ".tmp");
+
+                    //write it
+                    FileOutputStream stream = new FileOutputStream(temp);
                     stream.write(sendFile.message);
-                }
-                catch (IOException e)
-                {
+                    stream.close();
+                    String toPrint = String.format("[%s][%s][%s] File received: %s",time, this.username, sendFile.fromUsername, temp.getAbsolutePath());
+                    output.tell(toPrint, self());
+                    logger.info(toPrint);
+
+                }catch(IOException e) {
+
                     e.printStackTrace();
+
                 }
-                String toPrint = String.format("[%s][%s][%s] File received: %s",time, this.username, sendFile.fromUsername, currentPath);
-                output.tell(toPrint, self());
-                logger.info(toPrint);
+
             })
             .match(Action.SendMessage.class, message -> {
                 // send  text message to server actor- works. //TODO: add similar function to send files, add group logic
