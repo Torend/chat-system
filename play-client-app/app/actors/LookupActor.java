@@ -38,9 +38,11 @@ this is the actor of the client itself.
 does all the messaging functionality.
 
  */
-public class LookupActor extends AbstractActor {
+public class LookupActor extends AbstractActor
+{
 
-    public static Props props(ActorRef out) {
+    public static Props props(ActorRef out)
+    {
         return Props.create(LookupActor.class, out);
     }
 
@@ -56,11 +58,13 @@ public class LookupActor extends AbstractActor {
 //        this(config.getString("lookup.path"));
 //    }
 
-    public LookupActor(String path) {
+    public LookupActor(String path)
+    {
         this.path = path;
         sendIdentifyRequest();
     }
-    public LookupActor(ActorRef out) {
+    public LookupActor(ActorRef out)
+    {
         //this.path = config.getString("lookup.path");
         this.path = context().system().settings().config().getString("lookup.path");
         this.output = out;
@@ -68,7 +72,8 @@ public class LookupActor extends AbstractActor {
         sendIdentifyRequest();
     }
 
-    private void sendIdentifyRequest() {
+    private void sendIdentifyRequest()
+    {
         getContext().actorSelection(path).tell(new Identify(path), self());
         getContext()
                 .system()
@@ -86,14 +91,17 @@ public class LookupActor extends AbstractActor {
         Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, getClient, timer);
         Action.GetClientResult client;
-        try {
+        try
+        {
             client = (Action.GetClientResult) Await.result(rt, timer.duration());
             timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
             if(client.didFind)
             {
                 return client.result;
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.debug(e.getMessage());
             return null;
         }
@@ -109,7 +117,8 @@ public class LookupActor extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(ActorIdentity.class, identity -> {
+                .match(ActorIdentity.class, identity ->
+                {
                     Optional<ActorRef> serverRef = identity.getActorRef();
                     if (serverRef.isPresent()) {
                         server = serverRef.get();
@@ -119,7 +128,8 @@ public class LookupActor extends AbstractActor {
                         logger.info("Remote actor not available: " + path);
                     }
                 })
-                .match(ReceiveTimeout.class, x -> {
+                .match(ReceiveTimeout.class, x ->
+                {
                     sendIdentifyRequest();
                 })
 
@@ -127,37 +137,48 @@ public class LookupActor extends AbstractActor {
     }
 
     Receive active = receiveBuilder()
-            .match(String.class, message -> {
+            .match(String.class, message ->
+            {
                 //output.tell("I received your message: " + message, self());
                 parseCommand(message);
-            }).match(Action.Connect.class, connect -> {
+            }).match(Action.Connect.class, connect ->
+            {
                 // send message to server actor
                 logger.info("Connecting");
                 this.username = connect.username;
                 Action.Connect conMessage = new Action.Connect(this.username, self());
                 server.tell(conMessage, self()); // TODO: should be ASK to know if the user was indeed created
             })
-            .match(Action.FrameworkCommand.class, frameworkCommand -> {
+            .match(Action.FrameworkCommand.class, frameworkCommand ->
+            {
                 parseCommand(frameworkCommand.command);
             })
-            .match(Action.SendText.class, sendText -> {
+            .match(Action.SendText.class, sendText ->
+            {
                 String time = currentTime();
-                logger.info("[{}][{}][{}]{}",time, this.username, sendText.fromUsername, sendText.message);
+                String toPrint = String.format("[%s][%s][%s]%s",time, this.username, sendText.fromUsername, sendText.message);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
-            .match(Action.SendFile.class, sendFile -> {
+            .match(Action.SendFile.class, sendFile ->
+            {
                 String time = currentTime();
                 String currentPath = System.getProperty("user.dir");
-                try (FileOutputStream stream = new FileOutputStream(currentPath)) {
+                try (FileOutputStream stream = new FileOutputStream(currentPath))
+                {
                     stream.write(sendFile.message);
                 }
-                catch (IOException e) {
+                catch (IOException e)
+                {
                     e.printStackTrace();
                 }
-                logger.info("[{}][{}][{}] File received: {}",time, this.username, sendFile.fromUsername, currentPath);
+                String toPrint = String.format("[%s][%s][%s] File received: %s",time, this.username, sendFile.fromUsername, currentPath);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
             .match(Action.SendMessage.class, message -> {
                 // send  text message to server actor- works. //TODO: add similar function to send files, add group logic
-                logger.info("SENDO: {} {}", message.message, message.username);
+                //logger.info("SENDO: {} {}", message.message, message.username);
                 ActorRef sendeeRef = Util.getClientActorRef(message.username, getContext(), server, logger);//getClientActorRef(message.username);
                 if(sendeeRef != null)
                 {
@@ -174,24 +195,38 @@ public class LookupActor extends AbstractActor {
 
 
             })
-            .match(Action.GroupMessage.class, groupMessage -> {
+            .match(Action.GroupMessage.class, groupMessage ->
+            {
                 String time = currentTime();
+                String toPrint;
+
                 if (groupMessage instanceof Action.GroupMessage.Text)
-                    logger.info("[{}][{}][{}]{}",time, groupMessage.groupName, groupMessage.senderName, ((Action.GroupMessage.Text) groupMessage).message);
-                else if (groupMessage instanceof Action.GroupMessage.File){ // GroupMessage.File
+                {
+                    toPrint = String.format("[%s][%s][%s]%s",time, groupMessage.groupName, groupMessage.senderName, ((Action.GroupMessage.Text) groupMessage).message);
+                    output.tell(toPrint, self());
+                    logger.info(toPrint);
+                }
+                else if (groupMessage instanceof Action.GroupMessage.File)
+                { // GroupMessage.File
                     String currentPath = System.getProperty("user.dir");
-                    try (FileOutputStream stream = new FileOutputStream(currentPath)) {
+                    try (FileOutputStream stream = new FileOutputStream(currentPath))
+                    {
                         stream.write(((Action.GroupMessage.File) groupMessage).message);
                     }
-                    catch (IOException e) {
+                    catch (IOException e)
+                    {
                         e.printStackTrace();
                     }
-                    logger.info("[{}][{}][{}] File received: {}",time, groupMessage.groupName, groupMessage.senderName, currentPath);
+                    toPrint = String.format("[%s][%s][%s] File received: %s",time, groupMessage.groupName, groupMessage.senderName, currentPath);
+                    output.tell(toPrint, self());
+                    logger.info(toPrint);
                 }
 
 
             })
-            .match(Action.SendText.class, text -> {
+            .match(Action.SendText.class, text ->
+            {
+                //TODO: is this part even needed?
                 // in case a message arrives
                 logger.info("Text: {}", text.message);
             })
@@ -203,39 +238,55 @@ public class LookupActor extends AbstractActor {
                 ActorRef inviterRef = getClientActorRef(invitation.inviterName);
                 assert inviterRef != null;
                 if (response.equals("Yes"))
+                {
                     inviterRef.tell(new Action.Requset.Accept(this.username), self());
+                }
                 else inviterRef.tell(new Action.Requset.Deny(this.username), self());
             })
-            .match(Action.RemoveFromGroup.class, removeFromGroup -> {
-                logger.info("You have been removed from {} by {}!", removeFromGroup.groupName, removeFromGroup.removedName);
+            .match(Action.RemoveFromGroup.class, removeFromGroup ->
+            {
+                String toPrint = String.format("You have been removed from %s by %s!", removeFromGroup.groupName, removeFromGroup.removedName);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
-            .match(Action.MuteMember.class, muteMember -> {
-                logger.info("You have been muted for {} in {} by {}!", muteMember.time, muteMember.groupName, muteMember.senderName);
+            .match(Action.MuteMember.class, muteMember ->
+            {
+                String toPrint = String.format("You have been muted for %s in %s by %s!", muteMember.time, muteMember.groupName, muteMember.senderName);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
-            .match(Action.UnMuteMember.class, unMuteMember -> {
-                logger.info("You have been unmuted in {} by {}", unMuteMember.groupName, unMuteMember.senderName);
+            .match(Action.UnMuteMember.class, unMuteMember ->
+            {
+                String toPrint = String.format("You have been unmuted in %s by %s", unMuteMember.groupName, unMuteMember.senderName);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
-            .match(Action.MutingTimeUp.class, mutingTimeUp -> {
-                logger.info("You have been unmuted! in {} Muting time is up!", mutingTimeUp.groupName);
+            .match(Action.MutingTimeUp.class, mutingTimeUp ->
+            {
+                String toPrint = String.format("You have been unmuted! in %s Muting time is up!", mutingTimeUp.groupName);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
-            .match(Action.AddCoAdmin.class, addCoAdmin -> {
-                logger.info("You have been promoted to co-admin in {}!", addCoAdmin.groupName);
+            .match(Action.AddCoAdmin.class, addCoAdmin ->
+            {
+                String toPrint = String.format("You have been promoted to co-admin in %s!", addCoAdmin.groupName);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
-            .match(Action.DeleteCoAdmin.class, deleteCoAdmin -> {
-                logger.info("You have been demoted to user in {}!", deleteCoAdmin.groupName);
+            .match(Action.DeleteCoAdmin.class, deleteCoAdmin ->
+            {
+                String toPrint = String.format("You have been demoted to user in %s!", deleteCoAdmin.groupName);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             })
-            .match(Op.AddResult.class, result -> {
-                logger.info("Add result: {} + {} = {}", result.getN1(), result.getN2(), result.getResult());
-            })
-            .match(Op.SubtractResult.class, result -> {
-                logger.info("Sub result: {} - {} = {}", result.getN1(), result.getN2(), result.getResult());
-            })
-            .match(Terminated.class, terminated -> {
-                logger.info("Calculator terminated");
+            .match(Terminated.class, terminated ->
+            {
+                logger.info("Actor terminated");
                 sendIdentifyRequest();
                 getContext().unbecome();
             })
-            .match(ReceiveTimeout.class, message -> {
+            .match(ReceiveTimeout.class, message ->
+            {
                 // ignore
             })
             .build();
@@ -245,7 +296,8 @@ public class LookupActor extends AbstractActor {
         String[] cmdArr = command.split(" ");
         if (cmdArr[0].equals("/user")) //user commands
         {
-            switch (cmdArr[1]) {
+            switch (cmdArr[1])
+            {
                 case "connect":
                     connect(cmdArr[2]);
                     break;
@@ -261,9 +313,11 @@ public class LookupActor extends AbstractActor {
                 default:
                     logger.info("wrong input");
             }
-        } else if (cmdArr[0].equals("/group")) //group commands
+        }
+        else if (cmdArr[0].equals("/group")) //group commands
         {
-            switch (cmdArr[1]) {
+            switch (cmdArr[1])
+            {
                 case "create":
                     createGroup(cmdArr[2]);
                     break;
@@ -271,7 +325,8 @@ public class LookupActor extends AbstractActor {
                     leaveGroup(cmdArr[2]);
                     break;
                 case "send":
-                    switch (cmdArr[2]) {
+                    switch (cmdArr[2])
+                    {
                         case "text":
                             groupTextMessage(cmdArr[3], cmdArr[4]);
                             break;
@@ -282,7 +337,8 @@ public class LookupActor extends AbstractActor {
                             logger.info("wrong input");
                     }
                 case "user":
-                    switch (cmdArr[2]) {
+                    switch (cmdArr[2])
+                    {
                         case "invite":
                             inviteToGroup(cmdArr[3], cmdArr[4]);
                             break;
@@ -299,7 +355,8 @@ public class LookupActor extends AbstractActor {
                             logger.info("wrong input");
                     }
                 case "coadmin":
-                    switch (cmdArr[2]) {
+                    switch (cmdArr[2])
+                    {
                         case "add":
                             addCoAdmin(cmdArr[3], cmdArr[4]);
                             break;
@@ -315,103 +372,179 @@ public class LookupActor extends AbstractActor {
         }
     }
 
-    private void connect(String username) {
+    private void connect(String username)
+    {
         this.username = username;
         Action.Connect conMessage = new Action.Connect(this.username, self());
         Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, conMessage, timer);
         Action.ActionResult result;
-        try {
+        String toPrint = "";
+
+        try
+        {
             result = (Action.ActionResult) Await.result(rt, timer.duration());
-            if (result != null) {
+            if (result != null)
+            {
                 if (result.getResult() == Errors.Error.SUCCESS)
-                    logger.info("{} has connected successfully!", this.username);
+                {
+                    toPrint = String.format("%s has connected successfully!", this.username);
+
+                }
                 else if (result.getResult() == Errors.Error.DUPLICATE_USER)
-                    logger.info("{} user in use!", this.username);
+                {
+                    toPrint = String.format("%s user in use!", this.username);
+                }
             }
-        } catch (Exception e) {
-            logger.info("server is offline!");
+        } catch (Exception e)
+        {
+            toPrint = "server is offline!";
+        }
+        finally
+        {
+            output.tell(toPrint, self());
+            logger.info(toPrint);
         }
     }
 
-    private void disconnect() {
+    private void disconnect()
+    {
         Action.Disconnect disconnectMessage = new Action.Disconnect(this.username);
         Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, disconnectMessage, timer);
         Action.ActionResult result;
-        try {
+        String toPrint = "";
+        try
+        {
             result = (Action.ActionResult) Await.result(rt, timer.duration());
-            if (result != null) {
+            if (result != null)
+            {
                 if (result.getResult() == Errors.Error.SUCCESS)
-                    logger.info("{} has been disconnected successfully!", this.username);
+                {
+                    toPrint = String.format("%s has been disconnected successfully!", this.username);
+                }
             }
-        } catch (Exception e) {
-            logger.info("server is offline! try again later!");
+        }
+        catch (Exception e)
+        {
+            toPrint = "server is offline! try again later!";
+        }
+        finally
+        {
+            output.tell(toPrint, self());
+            logger.info(toPrint);
         }
     }
 
-    private void sendText(String target, String msg) {
+    private void sendText(String target, String msg)
+    {
         ActorRef sendeeRef = getClientActorRef(target);
-        if (sendeeRef != null) {
+        if (sendeeRef != null)
+        {
             Action.SendText textMessage = new Action.SendText(this.username, msg);
             sendeeRef.tell(textMessage, self());
-        } else logger.info("{} does not exist!", target);
+        }
+        else
+        {
+            String toPrint = String.format("%s does not exist!", target);
+            output.tell(toPrint, self());
+            logger.info(toPrint);
+        }
     }
 
-    private void sendFile(String target, String sourcefilePath) {
+    private void sendFile(String target, String sourcefilePath)
+    {
         Path fileLocation = Paths.get(sourcefilePath);
-        try {
+        String toPrint = "";
+        try
+        {
             byte[] file = Files.readAllBytes(fileLocation);
             Action.SendFile sendFile = new Action.SendFile(this.username, file);
             ActorRef sendeeRef = getClientActorRef(target);
             if (sendeeRef != null)
+            {
                 sendeeRef.tell(sendFile, self());
-            else logger.info("{} does not exist!", target);
-        } catch (IOException e) {
-            logger.info(sourcefilePath + " does not exist!");
+            }
+            else
+            {
+                toPrint = String.format("%s does not exist!", target);
+                output.tell(toPrint, self());
+                logger.info(toPrint);
+            }
+        } catch (IOException e)
+        {
+            toPrint = sourcefilePath + " does not exist!";
+            output.tell(toPrint, self());
+            logger.info(toPrint);
         }
     }
 
-    private void createGroup(String groupName) {
+    private void createGroup(String groupName)
+    {
         Action.CreateGroup createGroup = new Action.CreateGroup(this.username, groupName, self());
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, createGroup, timer);
         Action.ActionResult result;
-        try {
+        String toPrint = "";
+        try
+        {
             result = (Action.ActionResult) Await.result(rt, timer.duration());
-            if (result != null) {
-                if (result.getResult() == Errors.Error.SUCCESS) {
-                    logger.info(groupName + " created successfully!");
-                } else if (result.getResult() == Errors.Error.DUPLICATE_GROUP) {
-                    logger.info(groupName + " " + result.getResult().getDescription());
+            if (result != null)
+            {
+                if (result.getResult() == Errors.Error.SUCCESS)
+                {
+                    toPrint = groupName + " created successfully!";
+                    logger.info(toPrint);
+                }
+                else if (result.getResult() == Errors.Error.DUPLICATE_GROUP)
+                {
+                    toPrint = groupName + " " + result.getResult().getDescription();
+                    logger.info(toPrint);
                 }
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.debug(e.getMessage());
         }
     }
 
-    private void leaveGroup(String groupName) {
-        Action.CreateGroup createGroup = new Action.CreateGroup(this.username, groupName, self());
+    private void leaveGroup(String groupName)
+    {
+        Action.LeaveGroup createGroup = new Action.LeaveGroup(this.username, groupName);
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, createGroup, timer);
         Action.ActionResult result;
-        try {
+        String toPrint = "";
+        try
+        {
             result = (Action.ActionResult) Await.result(rt, timer.duration());
-            if (result != null) {
+            if (result != null)
+            {
                 if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
-                    logger.info(groupName + " " + result.getResult().getDescription());
+                {
+                    toPrint = groupName + " " + result.getResult().getDescription();
+                    output.tell(toPrint, self());
+                    logger.info(toPrint);
+                }
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.debug(e.getMessage());
         }
     }
 
-    private void inviteToGroup(String groupName, String invitee) {
+    private void inviteToGroup(String groupName, String invitee)
+    {
         // check if invitee exist in the server
         ActorRef inviteeRef = getClientActorRef(invitee);
-        if (inviteeRef == null) {
-            logger.info(invitee + " does not exist!");
+        String toPrint = "";
+        if (inviteeRef == null)
+        {
+            toPrint = invitee + " does not exist!";
+            output.tell(toPrint, self());
+            logger.info(toPrint);
             return;
         }
 
@@ -419,123 +552,196 @@ public class LookupActor extends AbstractActor {
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, inviteToGroup, timer);
         Action.ActionResult result;
-        try {
+        try
+        {
             result = (Action.ActionResult) Await.result(rt, timer.duration());
-            if (result != null) {
+            if (result != null)
+            {
                 if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
-                    logger.info(groupName + " " + result.getResult().getDescription());
+                {
+                    toPrint = groupName + " " + result.getResult().getDescription();
+                }
                 else if (result.getResult() == Errors.Error.NO_PRIVILEGE)
-                    logger.info(result.getResult().getDescription() + groupName);
+                {
+                    toPrint = result.getResult().getDescription() + groupName;
+                }
                 else if (result.getResult() == Errors.Error.ALREADY_MEMBER)
-                    logger.info("{} is already in {}", invitee, groupName);
-                else if (result.getResult() == Errors.Error.SUCCESS) {
+                {
+                    toPrint = String.format("%s is already in %s", invitee, groupName);
+                }
+                else if (result.getResult() == Errors.Error.SUCCESS)
+                {
+                    timer = new Timeout(Duration.create(60, TimeUnit.SECONDS));
                     Future<Object> rt2 = Patterns.ask(inviteeRef, inviteToGroup, timer);
                     Action.Requset answer;
-                    try {
-                        answer = (Action.Requset) Await.result(rt, timer.duration());
-                        if (answer != null) {
-                            if (answer instanceof Action.Requset.Accept) { // accept the invitation
+                    try
+                    {
+                        answer = (Action.Requset) Await.result(rt2, timer.duration());
+                        if (answer != null)
+                        {
+                            if (answer instanceof Action.Requset.Accept)
+                            { // accept the invitation
                                 server.tell(new Action.AddToGroup(inviteeRef, invitee, groupName), self()); // add the invitee to group
                                 inviteeRef.tell(new Action.SendText(this.username, "Welcome to " + groupName), self()); // send the invitee welcome message
-                            } else { // deny the invitation
-                                logger.info(invitee + " deny the invitation"); // not sure if we need to print this
+                            }
+                            else
+                                { // deny the invitation
+                                toPrint =  invitee + " deny the invitation"; //TODO: not sure if we need to print this
                             }
                         }
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e)
+                    {
                         logger.debug(e.getMessage());
                     }
                 }
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.debug(e.getMessage());
+        }
+        finally
+        {
+            output.tell(toPrint, self()); //TODO: the prints here maybe duplicates
+            logger.info(toPrint);
         }
     }
 
-    private void groupTextMessage(String groupName, String message) {
+    private void groupTextMessage(String groupName, String message)
+    {
         Action.GroupMessage.Text textMsg = new Action.GroupMessage.Text(groupName, this.username, message);
         sendMessage(groupName, textMsg);
     }
 
-    private void groupFileMessage(String groupName, String sourcefilePath) {
+    private void groupFileMessage(String groupName, String sourcefilePath)
+    {
         Path fileLocation = Paths.get(sourcefilePath);
-        try { // need to check if work
+        try
+        { // need to check if work
             byte[] msg = Files.readAllBytes(fileLocation);
             Action.GroupMessage.File fileMsg = new Action.GroupMessage.File(groupName, this.username, msg);
             sendMessage(groupName, fileMsg);
-        } catch (IOException e) {
-            logger.info(sourcefilePath + " does not exist!");
+        }
+        catch (IOException e)
+        {
+            String toPrint = sourcefilePath + " does not exist!";
+            output.tell(toPrint, self());
+            logger.info(toPrint);
         }
 
     }
 
-    private void sendMessage(String groupName, Action.GroupMessage message) {
+    private void sendMessage(String groupName, Action.GroupMessage message)
+    {
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, message, timer);
         Action.ActionResult result;
-        try {
+        String toPrint = "" ;
+        try
+        {
             result = (Action.ActionResult) Await.result(rt, timer.duration());
-            if (result != null) {
+            if (result != null)
+            {
                 if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
-                    logger.info(groupName + " " + result.getResult().getDescription());
+                {
+                    toPrint = groupName + " " + result.getResult().getDescription();
+                }
                 else if (result.getResult() == Errors.Error.NO_SUCH_MEMBER)
-                    logger.info("You are not part of " + groupName);
+                {
+                    toPrint = "You are not part of " + groupName;
+                }
                 else if (result.getResult() == Errors.Error.MUTED)
-                    logger.info(result.getResult().getDescription() + "in " + groupName);
+                {
+                   toPrint = result.getResult().getDescription() + "in " + groupName;
+                }
+                output.tell(toPrint, self());
+                logger.info(toPrint);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.debug(e.getMessage());
         }
     }
 
-    private void removeFromGroup(String groupName, String targetusername) {
+    private void removeFromGroup(String groupName, String targetusername)
+    {
         Action.RemoveFromGroup removeFromGroup = new Action.RemoveFromGroup(this.username, targetusername, groupName);
         AdminMessage(removeFromGroup, groupName, targetusername);
     }
 
-    private void mute(String groupName, String targetusername, int time) {
+    private void mute(String groupName, String targetusername, int time)
+    {
         Action.MuteMember muteMember = new Action.MuteMember(this.username, targetusername, groupName, time);
         AdminMessage(muteMember, groupName, targetusername);
     }
 
-    private void unMute(String groupName, String targetusername) {
+    private void unMute(String groupName, String targetusername)
+    {
         Action.UnMuteMember unMuteMember = new Action.UnMuteMember(this.username, targetusername, groupName);
         AdminMessage(unMuteMember, groupName, targetusername);
     }
 
-    private void addCoAdmin(String groupName, String targetusername) {
+    private void addCoAdmin(String groupName, String targetusername)
+    {
         Action.AddCoAdmin addCoAdmin = new Action.AddCoAdmin(this.username, targetusername, groupName);
         AdminMessage(addCoAdmin, groupName, targetusername);
     }
 
-    private void removeCoAdmin(String groupName, String targetusername) {
+    private void removeCoAdmin(String groupName, String targetusername)
+    {
         Action.DeleteCoAdmin deleteCoAdmin = new Action.DeleteCoAdmin(this.username, targetusername, groupName);
         AdminMessage(deleteCoAdmin, groupName, targetusername);
     }
 
-    private void AdminMessage(Action.Message msg, String groupName, String targetusername) {
+    private void AdminMessage(Action.Message msg, String groupName, String targetusername)
+    {
         // check if invitee exist in the server
         ActorRef targetRef = getClientActorRef(targetusername);
-        if (targetRef == null) {
-            logger.info(targetusername + " does not exist!");
+        String toPrint = "";
+        if (targetRef == null)
+        {
+
+            toPrint = targetusername + " does not exist!";
+            output.tell(toPrint, self());
+            logger.info(toPrint);
             return;
         }
 
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, msg, timer);
 
-        try {
+        try
+        {
             Action.ActionResult result = (Action.ActionResult) Await.result(rt, timer.duration());
-            if (result != null) {
+            if (result != null)
+            {
                 if (result.getResult() == Errors.Error.NO_SUCH_GROUP)
-                    logger.info(groupName + " " + result.getResult().getDescription());
+                {
+                    toPrint = groupName + " " + result.getResult().getDescription();
+                }
                 else if (result.getResult() == Errors.Error.NO_PRIVILEGE)
-                    logger.info(result.getResult().getDescription() + groupName);
+                {
+                    toPrint = result.getResult().getDescription() + groupName;
+                }
                 else if (result.getResult() == Errors.Error.NO_SUCH_MEMBER)
-                    logger.info(msg + result.getResult().getDescription());
+                {
+                    toPrint = msg + result.getResult().getDescription();
+                }
                 else if (result.getResult() == Errors.Error.SUCCESS)
+                {
                     targetRef.tell(msg, self());
+                }
+                if (toPrint != "")
+                {
+                    output.tell(toPrint, self());
+                    logger.info(toPrint);
+                }
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.debug(e.getMessage());
         }
     }

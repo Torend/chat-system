@@ -40,7 +40,8 @@ public class HomeController extends Controller {
 //    private final Flow<String, String, NotUsed> userFlow;
 
     @Inject
-    public HomeController( ActorSystem actorSystem, Materializer materializer){//@Named("lookup-actor") ActorRef lookupActor,) {
+    public HomeController( ActorSystem actorSystem, Materializer materializer) //@Named("lookup-actor") ActorRef lookupActor,) {
+    {
         this.lookupActor = null;
         this.actorSystem = actorSystem;
         this.materializer = materializer;
@@ -54,10 +55,13 @@ public class HomeController extends Controller {
 //        this.userFlow = Flow.fromSinkAndSource(chatSink, chatSource);
     }
 
-    private String handleOutput() {
-        try {
+    private String handleOutput()
+    {
+        try
+        {
             TimeUnit.SECONDS.sleep(7);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException e)
+        {
             e.printStackTrace();
         }
         Action.AskOutput asker = new Action.AskOutput();
@@ -65,16 +69,21 @@ public class HomeController extends Controller {
         Future<Object> rt = Patterns.ask(this.lookupActor, asker, timer);
         Action.GetOutput output;
         String toPrint = "";
-        try {
+        try
+        {
             output = (Action.GetOutput) Await.result(rt, timer.duration());
-            if (output.hasContent) {
-                for (int i = 0; i < output.lines.size(); i++) {
+            if (output.hasContent)
+            {
+                for (int i = 0; i < output.lines.size(); i++)
+                {
                     toPrint.concat(output.lines.get(i));
                 }
                 return toPrint;
             }
 
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
 
             return "";
         }
@@ -83,11 +92,13 @@ public class HomeController extends Controller {
 
     }
 
-    private void handleInput(String text) {
+    private void handleInput(String text)
+    {
         lookupActor.tell(new Action.SendText("fucker", text), null);
     }
 
-    public WebSocket socket() {
+    public WebSocket socket()
+    {
         return WebSocket.Text.accept(
                 request -> ActorFlow.actorRef(LookupActor::props, actorSystem, materializer));
     }
@@ -122,7 +133,8 @@ public class HomeController extends Controller {
      * this method will be called when the application receives a
      * <code>GET</code> request with a path of <code>/</code>.
      */
-    public Result index() {
+    public Result index()
+    {
         /*
         this is the homepage, when you enter localhost:9000 the actions here will happen.
         currently I used it to test messaging.
@@ -134,24 +146,5 @@ public class HomeController extends Controller {
         return ok(views.html.index.render(url));
     }
 
-    public Result add(int a, int b) {
-        // Fire-and-forget
-        //lookupActor.tell(new Action.Connect("fucker"), null);
-        //lookupActor.tell(new Action.SendText("fucker", "fuck"), null);
-        lookupActor.tell(new Op.Add(a, b), null);
-        return ok("Add: See the logs for result");
-    }
 
-    public Result subtract(int a, int b) {
-        // Fire-and-forget
-        lookupActor.tell(new Op.Subtract(a, b), null);
-        return ok("Subtract: See the logs for result");
-    }
-
-    public Result sendTo()
-    {
-        //DynamicForm form = Form.form().bindFromRequest();
-        return ok("fuc kyo");
-
-    }
 }

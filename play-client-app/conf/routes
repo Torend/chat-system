@@ -4,10 +4,7 @@
 
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index
-GET     /add/:a/:b                  controllers.HomeController.add(a: Integer, b: Integer)
-GET     /sub/:a/:b                  controllers.HomeController.subtract(a: Integer, b: Integer)
 GET     /socket                     controllers.HomeController.socket
-POST    /sendTo                     controllers.HomeController.sendTo()
 
 
 # Map static resources from the /public folder to the /assets URL path
