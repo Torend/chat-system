@@ -1,15 +1,20 @@
 package actors;
 
+import static java.lang.System.out;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import akka.actor.*;
+import akka.pattern.AskableActorSelection;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
+import com.google.inject.Inject;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.concurrent.Await;
 import scala.concurrent.duration.Duration;
 import scala.concurrent.Future;
+import scala.util.Try;
 import akka.actor.ActorRef;
 import akka.actor.ActorIdentity;
 import akka.actor.Identify;
@@ -22,7 +27,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedList;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -35,19 +42,33 @@ does all the messaging functionality.
  */
 public class LookupActor extends AbstractActor {
 
+    public static Props props(ActorRef out) {
+        return Props.create(LookupActor.class, out);
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(LookupActor.class);
 
     private final String path;
     private ActorRef server = null;
-    public String username;
+    private ActorRef output = null;
+    private String username;
+    private Queue<Action.InviteToGroup> inviteQueue = new LinkedList<>();
 
-    @Inject
-    public LookupActor(Config config) {
-        this(config.getString("lookup.path"));
-    }
+
+//    @Inject
+//    public LookupActor(Config config) {
+//        this(config.getString("lookup.path"));
+//    }
 
     public LookupActor(String path) {
         this.path = path;
+        sendIdentifyRequest();
+    }
+    public LookupActor(ActorRef out) {
+        //this.path = config.getString("lookup.path");
+        this.path = context().system().settings().config().getString("lookup.path");
+        this.output = out;
+        logger.info("PATHO: {} {}", path, self().path().toString());
         sendIdentifyRequest();
     }
 
@@ -60,19 +81,21 @@ public class LookupActor extends AbstractActor {
                         ReceiveTimeout.getInstance(), getContext().dispatcher(), self());
     }
 
-    private ActorRef getClientActorRef(String username) {
+    private ActorRef getClientActorRef(String username)
+    {
         /*
         function that is used to detect other clients we want to send direct messages to.
          */
         Action.GetClient getClient = new Action.GetClient(username);
-        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, getClient, timer);
         Action.GetClientResult client;
         try {
             client = (Action.GetClientResult) Await.result(rt, timer.duration());
-            timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
-            if (client.didFind) {
-                return getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
+            timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
+            if(client.didFind)
+            {
+                return client.result;
             }
         } catch (Exception e) {
             logger.debug(e.getMessage());
@@ -107,7 +130,11 @@ public class LookupActor extends AbstractActor {
                 .build();
     }
 
-    Receive active = receiveBuilder()
+    private Receive active = receiveBuilder()
+            .match(String.class, message -> {
+                //output.tell("I received your message: " + message, self());
+                parseCommand(message);
+            })
             .match(Action.FrameworkCommand.class, frameworkCommand -> {
                 parseCommand(frameworkCommand.command);
             })
@@ -143,13 +170,7 @@ public class LookupActor extends AbstractActor {
             })
             .match(Action.InviteToGroup.class, invitation -> {
                 logger.info("You have been invited to {}, Accept?", invitation.groupName);
-                //TODO <targetusername> may accept [Yes] or deny [No] the invite. Response will be sent back to <sourceusername<
-                String response = ""; // <--- get response from the user
-                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
-                assert inviterRef != null;
-                if (response.equals("Yes"))
-                    inviterRef.tell(new Action.Requset.Accept(this.username), self());
-                else inviterRef.tell(new Action.Requset.Deny(this.username), self());
+                inviteQueue.add(invitation);
             })
             .match(Action.RemoveFromGroup.class, removeFromGroup -> {
                 logger.info("You have been removed from {} by {}!", removeFromGroup.groupName, removeFromGroup.removedName);
@@ -188,82 +209,100 @@ public class LookupActor extends AbstractActor {
 
     public void parseCommand(String command) {
         String[] cmdArr = command.split(" ");
-        if (cmdArr[0].equals("/user")) //user commands
-        {
-            switch (cmdArr[1]) {
-                case "connect":
-                    connect(cmdArr[2]);
-                    break;
-                case "disconnect":
-                    disconnect();
-                    break;
-                case "text":
-                    sendText(cmdArr[2], cmdArr[3]);
-                    break;
-                case "file":
-                    sendFile(cmdArr[2], cmdArr[3]);
-                    break;
-                default:
-                    logger.info("wrong input");
+        switch (cmdArr[0]) {
+            case "/user": //user commands
+                switch (cmdArr[1]) {
+                    case "connect":
+                        connect(cmdArr[2]);
+                        break;
+                    case "disconnect":
+                        disconnect();
+                        break;
+                    case "text":
+                        sendText(cmdArr[2], cmdArr[3]);
+                        break;
+                    case "file":
+                        sendFile(cmdArr[2], cmdArr[3]);
+                        break;
+                    default:
+                        logger.info("wrong input");
+                }
+                break;
+            case "/group": //group commands
+                switch (cmdArr[1]) {
+                    case "create":
+                        createGroup(cmdArr[2]);
+                        break;
+                    case "leave":
+                        leaveGroup(cmdArr[2]);
+                        break;
+                    case "send":
+                        switch (cmdArr[2]) {
+                            case "text":
+                                groupTextMessage(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "file":
+                                groupFileMessage(cmdArr[3], cmdArr[4]);
+                                break;
+                            default:
+                                logger.info("wrong input");
+                        }
+                    case "user":
+                        switch (cmdArr[2]) {
+                            case "invite":
+                                inviteToGroup(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "remove":
+                                removeFromGroup(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "mute":
+                                mute(cmdArr[3], cmdArr[4], Integer.parseInt(cmdArr[5]));
+                                break;
+                            case "unmute":
+                                unMute(cmdArr[3], cmdArr[4]);
+                                break;
+                            default:
+                                logger.info("wrong input");
+                        }
+                    case "coadmin":
+                        switch (cmdArr[2]) {
+                            case "add":
+                                addCoAdmin(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "remove":
+                                removeCoAdmin(cmdArr[3], cmdArr[4]);
+                                break;
+                            default:
+                                logger.info("wrong input");
+                        }
+                    default:
+                        logger.info("wrong input");
+                }
+                break;
+            case "YES": {
+                Action.InviteToGroup invitation = inviteQueue.remove();
+                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
+                assert inviterRef != null;
+                inviterRef.tell(new Action.Requset.Accept(this.username), self());
+                break;
             }
-        } else if (cmdArr[0].equals("/group")) //group commands
-        {
-            switch (cmdArr[1]) {
-                case "create":
-                    createGroup(cmdArr[2]);
-                    break;
-                case "leave":
-                    leaveGroup(cmdArr[2]);
-                    break;
-                case "send":
-                    switch (cmdArr[2]) {
-                        case "text":
-                            groupTextMessage(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "file":
-                            groupFileMessage(cmdArr[3], cmdArr[4]);
-                            break;
-                        default:
-                            logger.info("wrong input");
-                    }
-                case "user":
-                    switch (cmdArr[2]) {
-                        case "invite":
-                            inviteToGroup(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "remove":
-                            removeFromGroup(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "mute":
-                            mute(cmdArr[3], cmdArr[4], Integer.parseInt(cmdArr[5]));
-                            break;
-                        case "unmute":
-                            unMute(cmdArr[3], cmdArr[4]);
-                            break;
-                        default:
-                            logger.info("wrong input");
-                    }
-                case "coadmin":
-                    switch (cmdArr[2]) {
-                        case "add":
-                            addCoAdmin(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "remove":
-                            removeCoAdmin(cmdArr[3], cmdArr[4]);
-                            break;
-                        default:
-                            logger.info("wrong input");
-                    }
-                default:
-                    logger.info("wrong input");
+            case "NO": {
+                Action.InviteToGroup invitation = inviteQueue.remove();
+                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
+                assert inviterRef != null;
+                inviterRef.tell(new Action.Requset.Deny(this.username), self());
+                break;
             }
+            default:
+                logger.info("wrong input");
         }
+
     }
 
     private void connect(String username) {
         this.username = username;
-        Action.Connect conMessage = new Action.Connect(this.username);
-        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Action.Connect conMessage = new Action.Connect(this.username, self());
+        Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, conMessage, timer);
         Action.ActionResult result;
         try {
@@ -281,7 +320,7 @@ public class LookupActor extends AbstractActor {
 
     private void disconnect() {
         Action.Disconnect disconnectMessage = new Action.Disconnect(this.username);
-        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, disconnectMessage, timer);
         Action.ActionResult result;
         try {
