@@ -28,19 +28,14 @@ class GroupData {
         this.groupName = groupName;
         this.admin = admin;
         this.activeUsers = new HashMap<String, ActorRef>();
+        this.adminsList = new HashMap<String, ActorRef>();
         this.mutedUsers = new HashMap<String, Duration>();
+
     }
 
     void addUser(String username, ActorRef actorRef) {
         this.activeUsers.put(username, actorRef);
     }
-
-    void deleteUser(String username) {
-        this.groupRouter.removeRoutee(activeUsers.get(username));
-        this.activeUsers.remove(username);
-        this.adminsList.remove(username);
-    }
-
     void closeGroup() {
         adminsList.clear();
         activeUsers.clear();
@@ -53,6 +48,18 @@ class GroupData {
     void deleteCoAdmin(String username) {
         this.adminsList.remove(username);
     }
+
+    void deleteUser(String username) {
+        this.groupRouter.removeRoutee(activeUsers.get(username));
+        this.activeUsers.remove(username);
+        if (this.adminsList.containsKey(username))
+        {
+            deleteCoAdmin(username);
+        }
+        //this.adminsList.remove(username);
+    }
+
+
 }
 
 /**

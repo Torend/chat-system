@@ -333,7 +333,7 @@ public class LookupActor extends AbstractActor
                         sendFile(cmdArr[2], cmdArr[3]);
                         break;
                     default:
-                        logger.info("wrong input");
+                        logger.info("wrong input1");
                 }
                 break;
             case "/group": //group commands
@@ -353,7 +353,7 @@ public class LookupActor extends AbstractActor
                                 groupFileMessage(cmdArr[3], cmdArr[4]);
                                 break;
                             default:
-                                logger.info("wrong input");
+                                logger.info("wrong input2");
                         }
                     case "user":
                         switch (cmdArr[2]) {
@@ -370,7 +370,7 @@ public class LookupActor extends AbstractActor
                                 unMute(cmdArr[3], cmdArr[4]);
                                 break;
                             default:
-                                logger.info("wrong input");
+                                logger.info("wrong input3");
                         }
                     case "coadmin":
                         switch (cmdArr[2]) {
@@ -381,10 +381,10 @@ public class LookupActor extends AbstractActor
                                 removeCoAdmin(cmdArr[3], cmdArr[4]);
                                 break;
                             default:
-                                logger.info("wrong input");
+                                logger.info("wrong input4");
                         }
                     default:
-                        logger.info("wrong input");
+                        logger.info("wrong input5");
                 }
                 break;
             case "YES": {
@@ -747,7 +747,7 @@ public class LookupActor extends AbstractActor
             return;
         }
 
-        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Timeout timer = new Timeout(Duration.create(10, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, msg, timer);
 
         try
