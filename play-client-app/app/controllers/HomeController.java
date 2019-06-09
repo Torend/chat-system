@@ -2,19 +2,12 @@ package controllers;
 
 import actors.Action;
 import actors.LookupActor;
-import actors.MyWebSocketActor;
-import actors.Op;
-import akka.NotUsed;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
-import akka.japi.Pair;
 import akka.pattern.Patterns;
 import akka.stream.Materializer;
-import akka.stream.javadsl.*;
 import akka.util.Timeout;
 import play.mvc.WebSocket;
-import play.data.DynamicForm;
-import play.data.Form;
 import play.libs.streams.ActorFlow;
 import play.mvc.*;
 import scala.concurrent.Await;
@@ -23,7 +16,6 @@ import scala.concurrent.duration.Duration;
 
 
 import javax.inject.Inject;
-import javax.inject.Named;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -92,11 +84,6 @@ public class HomeController extends Controller {
 
     }
 
-    private void handleInput(String text)
-    {
-        lookupActor.tell(new Action.SendText("fucker", text), null);
-    }
-
     public WebSocket socket()
     {
         return WebSocket.Text.accept(
@@ -141,8 +128,6 @@ public class HomeController extends Controller {
          */
         Http.Request request = request();
         String url = routes.HomeController.socket().webSocketURL(request);
-        //lookupActor.tell(new Action.Connect("fucker"), null);
-        //lookupActor.tell(new Action.SendText("fucker", "fuck"), null);
         return ok(views.html.index.render(url));
     }
 
