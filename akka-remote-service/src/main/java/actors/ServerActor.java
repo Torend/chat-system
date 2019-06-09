@@ -4,7 +4,9 @@ import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class UserData {
@@ -12,33 +14,29 @@ class UserData {
     this is the class that represent the data that the server uses to track a user
      */
     public ActorRef clientRef;
-    public Map activeGroups;
+    public List<String> activeGroups;
 
     public UserData(ActorRef ref) {
         this.clientRef = ref;
-        this.activeGroups = new HashMap();
+        this.activeGroups = new ArrayList<>();
     }
 
     public boolean isInGroup(String groupName) {
-        if (this.activeGroups.get(groupName) != null) {
-            return true;
-        }
-        return false;
+        return activeGroups.contains(groupName);
     }
 
-    public boolean joinedGroup(String groupName, ActorRef groupRef) {
+    public boolean joinedGroup(String groupName) {
         boolean result = true;
-        if (this.isInGroup(groupName)) {
+        if (this.isInGroup(groupName))
             result = false;
-        } else {
-            this.activeGroups.put(groupName, groupName);
-        }
+        else
+            this.activeGroups.add(groupName);
         return result;
     }
 }
 
 public class ServerActor extends AbstractActor {
-    private Map map; // holds all existing user. it is a map of class UserData
+    private Map<String, UserData> map; // holds all existing user. it is a map of class UserData
     private ActorRef groupsManager;
 
     @Override
@@ -47,7 +45,6 @@ public class ServerActor extends AbstractActor {
                 .match(Action.Connect.class, connect ->
                 {
                     Action.MessageResult result;
-                    System.out.println("fucker happened");
                     // checking user is non existent
                     if (map.get(connect.username) == null)
                     {
@@ -64,17 +61,19 @@ public class ServerActor extends AbstractActor {
                 .match(Action.Disconnect.class, disconnect ->
                 {
                     Action.MessageResult result;
-                    if (map.get(disconnect.username) != null)
+                    UserData userData = map.get(disconnect.username);
+                    if (userData != null)
                     {
+                        // leave from all his groups
+                        userData.activeGroups.forEach(name -> this.groupsManager.tell(new Action.LeaveGroup(disconnect.username, name),sender()));
+                        // remove from the server
                         map.remove(disconnect.username);
                         result = new Action.ActionResult(Errors.Error.SUCCESS);
-                        //TODO leave all his groups
                     }
                     else
                     {
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_MEMBER);
                     }
-
                     sender().tell(result, self());
                 })
                 .match(Action.GetClient.class, getClient ->
@@ -82,9 +81,23 @@ public class ServerActor extends AbstractActor {
                     //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     String toPrint = String.format("AM FINDING %s", sender().toString());
                     System.out.println(toPrint);
-                    UserData foundUser = (UserData) map.get(getClient.username);
+                    UserData foundUser = map.get(getClient.username);
                     Action.GetClientResult result = new Action.GetClientResult(foundUser.clientRef, true);
                     sender().tell(result, self());
+                })
+                .match(Action.CreateGroup.class, createGroup ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    UserData userData = map.get(createGroup.adminName);
+                    if (userData != null) {
+                        userData.joinedGroup(createGroup.groupName);
+                        this.groupsManager.forward(createGroup, getContext());
+                    }
+                })
+                .match(Action.GroupMessage.class, groupMessage ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.CreateGroup.class, createGroup ->
                 {
@@ -139,7 +152,7 @@ public class ServerActor extends AbstractActor {
     @Override
     public void preStart() {
         // used to initialize the users DB and the groups manager.
-        this.map = new HashMap();
+        this.map = new HashMap<>();
         this.groupsManager = getContext().actorOf(Props.create(GroupManager.class), "groups");
     }
 }

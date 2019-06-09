@@ -27,7 +27,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedList;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -51,7 +53,8 @@ public class LookupActor extends AbstractActor
     private final String path;
     private ActorRef server = null;
     private ActorRef output = null;
-    public String username;
+    private String username;
+    private Queue<Action.InviteToGroup> inviteQueue = new LinkedList<>();
 
 
 //    @Inject
@@ -223,40 +226,10 @@ public class LookupActor extends AbstractActor
                     output.tell(toPrint, self());
                     logger.info(toPrint);
                 }
-
-
             })
-            .match(Action.SendText.class, text ->
-            {
-                //TODO: is this part even needed?
-                // in case a message arrives
-                logger.info("Text: {}", text.message);
-            })
-
             .match(Action.InviteToGroup.class, invitation -> {
-                String toPrint = String.format("You have been invited to %s, Accept?", invitation.groupName);
-                logger.info(toPrint);
-                //TODO <targetusername> may accept [Yes] or deny [No] the invite. Response will be sent back to <sourceusername<
-                String response = ""; // <--- get response from the user
-                Action.Connect conMessage = new Action.Connect(this.username, self());
-                Timeout timer = new Timeout(Duration.create(60, TimeUnit.SECONDS));
-                Future<Object> rt = Patterns.ask(output, toPrint, timer);
-                String result = "";
-                try {
-                    result = (String) Await.result(rt, timer.duration());
-                    logger.info(result);
-                }
-                catch (Exception e)
-                {
-                    logger.debug(e.getMessage());
-                }
-                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
-                assert inviterRef != null;
-                if (result.equals("Yes"))
-                {
-                    inviterRef.tell(new Action.Requset.Accept(this.username), self());
-                }
-                else inviterRef.tell(new Action.Requset.Deny(this.username), self());
+                logger.info("You have been invited to {}, Accept?", invitation.groupName);
+                inviteQueue.add(invitation);
             })
             .match(Action.RemoveFromGroup.class, removeFromGroup ->
             {
@@ -309,81 +282,92 @@ public class LookupActor extends AbstractActor
 
     public void parseCommand(String command) {
         String[] cmdArr = command.split(" ");
-        if (cmdArr[0].equals("/user")) //user commands
-        {
-            switch (cmdArr[1])
-            {
-                case "connect":
-                    connect(cmdArr[2]);
-                    break;
-                case "disconnect":
-                    disconnect();
-                    break;
-                case "text":
-                    sendText(cmdArr[2], cmdArr[3]);
-                    break;
-                case "file":
-                    sendFile(cmdArr[2], cmdArr[3]);
-                    break;
-                default:
-                    logger.info("wrong input");
+        switch (cmdArr[0]) {
+            case "/user": //user commands
+                switch (cmdArr[1]) {
+                    case "connect":
+                        connect(cmdArr[2]);
+                        break;
+                    case "disconnect":
+                        disconnect();
+                        break;
+                    case "text":
+                        sendText(cmdArr[2], cmdArr[3]);
+                        break;
+                    case "file":
+                        sendFile(cmdArr[2], cmdArr[3]);
+                        break;
+                    default:
+                        logger.info("wrong input");
+                }
+                break;
+            case "/group": //group commands
+                switch (cmdArr[1]) {
+                    case "create":
+                        createGroup(cmdArr[2]);
+                        break;
+                    case "leave":
+                        leaveGroup(cmdArr[2]);
+                        break;
+                    case "send":
+                        switch (cmdArr[2]) {
+                            case "text":
+                                groupTextMessage(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "file":
+                                groupFileMessage(cmdArr[3], cmdArr[4]);
+                                break;
+                            default:
+                                logger.info("wrong input");
+                        }
+                    case "user":
+                        switch (cmdArr[2]) {
+                            case "invite":
+                                inviteToGroup(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "remove":
+                                removeFromGroup(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "mute":
+                                mute(cmdArr[3], cmdArr[4], Integer.parseInt(cmdArr[5]));
+                                break;
+                            case "unmute":
+                                unMute(cmdArr[3], cmdArr[4]);
+                                break;
+                            default:
+                                logger.info("wrong input");
+                        }
+                    case "coadmin":
+                        switch (cmdArr[2]) {
+                            case "add":
+                                addCoAdmin(cmdArr[3], cmdArr[4]);
+                                break;
+                            case "remove":
+                                removeCoAdmin(cmdArr[3], cmdArr[4]);
+                                break;
+                            default:
+                                logger.info("wrong input");
+                        }
+                    default:
+                        logger.info("wrong input");
+                }
+                break;
+            case "YES": {
+                Action.InviteToGroup invitation = inviteQueue.remove();
+                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
+                assert inviterRef != null;
+                inviterRef.tell(new Action.Requset.Accept(this.username), self());
+                break;
             }
-        }
-        else if (cmdArr[0].equals("/group")) //group commands
-        {
-            switch (cmdArr[1])
-            {
-                case "create":
-                    createGroup(cmdArr[2]);
-                    break;
-                case "leave":
-                    leaveGroup(cmdArr[2]);
-                    break;
-                case "send":
-                    switch (cmdArr[2])
-                    {
-                        case "text":
-                            groupTextMessage(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "file":
-                            groupFileMessage(cmdArr[3], cmdArr[4]);
-                            break;
-                        default:
-                            logger.info("wrong input");
-                    }
-                case "user":
-                    switch (cmdArr[2])
-                    {
-                        case "invite":
-                            inviteToGroup(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "remove":
-                            removeFromGroup(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "mute":
-                            mute(cmdArr[3], cmdArr[4], Integer.parseInt(cmdArr[5]));
-                            break;
-                        case "unmute":
-                            unMute(cmdArr[3], cmdArr[4]);
-                            break;
-                        default:
-                            logger.info("wrong input");
-                    }
-                case "coadmin":
-                    switch (cmdArr[2])
-                    {
-                        case "add":
-                            addCoAdmin(cmdArr[3], cmdArr[4]);
-                            break;
-                        case "remove":
-                            removeCoAdmin(cmdArr[3], cmdArr[4]);
-                            break;
-                        default:
-                            logger.info("wrong input");
-                    }
-                default:
-                    logger.info("wrong input");
+            case "NO": {
+                Action.InviteToGroup invitation = inviteQueue.remove();
+                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
+                assert inviterRef != null;
+                inviterRef.tell(new Action.Requset.Deny(this.username), self());
+                break;
             }
+            default:
+                logger.info("wrong input");
         }
     }
 
