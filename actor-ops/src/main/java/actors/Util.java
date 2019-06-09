@@ -29,7 +29,7 @@ public class Util {
             timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
             if(client.didFind)
             {
-                return context.actorSelection(client.result).resolveOne(timer).value().get().get();
+                return client.result;
             }
         } catch (Exception e) {
             if(logger != null)

@@ -40,7 +40,7 @@ public class HomeController extends Controller {
 //    private final Flow<String, String, NotUsed> userFlow;
 
     @Inject
-    public HomeController(ActorSystem actorSystem, Materializer materializer){//@Named("lookup-actor") ActorRef lookupActor) {
+    public HomeController( ActorSystem actorSystem, Materializer materializer){//@Named("lookup-actor") ActorRef lookupActor,) {
         this.lookupActor = null;
         this.actorSystem = actorSystem;
         this.materializer = materializer;

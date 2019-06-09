@@ -46,9 +46,13 @@ public class ServerActor extends AbstractActor {
         return receiveBuilder()
                 .match(Action.Connect.class, connect -> {
                     Action.MessageResult result;
+                    System.out.println("fucker happened");
                     // checking user is non existent
                     if (map.get(connect.username) == null) {
-                        UserData newUser = new UserData(sender());
+                        //sender()
+                        String toPrinto = String.format("CREATING %s", getSender().path().toString());
+                        System.out.println(toPrinto);
+                        UserData newUser = new UserData(connect.myRef);
                         map.put(connect.username, newUser);
                         result = new Action.ActionResult(Errors.Error.SUCCESS);
                     } else result = new Action.ActionResult(Errors.Error.DUPLICATE_USER);
@@ -66,11 +70,23 @@ public class ServerActor extends AbstractActor {
                     sender().tell(result, self());
                 })
                 .match(Action.GetClient.class, getClient -> {
-                    //will return the ActorPath of the actor in serializable format
-                    UserData foundUser = new UserData((ActorRef) map.get(getClient.username));
-                    Action.GetClientResult result = new Action.GetClientResult(foundUser.clientRef.path().toSerializationFormat(), true);
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    String toPrint = String.format("AM FINDING %s", sender().toString());
+                    System.out.println(toPrint);
+                    UserData foundUser = (UserData) map.get(getClient.username);
+                    Action.GetClientResult result = new Action.GetClientResult(foundUser.clientRef, true);
                     sender().tell(result, self());
                 })
+                .match(Action.CreateGroup.class, createGroup -> {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(createGroup, getContext());
+                })
+                .match(Action.GroupMessage.class, groupMessage -> {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(groupMessage, getContext());
+                })
+
+
                 .build();
     }
 

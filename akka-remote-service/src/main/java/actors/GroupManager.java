@@ -77,6 +77,7 @@ public class GroupManager extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(Action.CreateGroup.class, groupCreation -> {
+                    System.out.println("creating group");
                     GroupData findGroup = this.groupsData.get(groupCreation.groupName);
                     Action.ActionResult result;
                     if (findGroup == null) {
@@ -201,34 +202,34 @@ public class GroupManager extends AbstractActor {
                     }
                     sender().tell(result, self());
                 })
-                .match(Action.MuteMember.class, groupMute -> {
-                    Action.ActionResult result;
-                    GroupData findGroup = this.groupsData.get(groupMute.groupName);
-                    if (findGroup == null)
-                        result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
-                    else {
-                        if (groupMute.senderName.equals(findGroup.admin) || findGroup.adminsList.containsKey(groupMute.senderName)) { //check privilege
-                            if (findGroup.activeUsers.containsKey(groupMute.muteName)) { // check if muteName is in this group
-                                findGroup.mutedUsers.put(groupMute.muteName, Duration.ofSeconds(groupMute.time));
-                                result = new Action.ActionResult(Errors.Error.SUCCESS);
-                                getContext().getSystem().
-                                        scheduler()
-                                        .scheduleOnce(
-                                                Duration.ofSeconds(groupMute.time),
-                                                new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        findGroup.mutedUsers.remove(groupMute.muteName);
-                                                        ActorRef actorRef = findGroup.activeUsers.get(groupMute.muteName);
-                                                        actorRef.tell(new Action.MutingTimeUp(findGroup.groupName), self());
-                                                    }
-                                                },
-                                                getContext().getSystem().dispatcher());
-                            } else result = new Action.ActionResult(Errors.Error.NO_SUCH_MEMBER);
-                        } else result = new Action.ActionResult(Errors.Error.NO_PRIVILEGE);
-                    }
-                    sender().tell(result, self());
-                })
+//                .match(Action.MuteMember.class, groupMute -> {
+//                    Action.ActionResult result;
+//                    GroupData findGroup = this.groupsData.get(groupMute.groupName);
+//                    if (findGroup == null)
+//                        result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
+//                    else {
+//                        if (groupMute.senderName.equals(findGroup.admin) || findGroup.adminsList.containsKey(groupMute.senderName)) { //check privilege
+//                            if (findGroup.activeUsers.containsKey(groupMute.muteName)) { // check if muteName is in this group
+//                                findGroup.mutedUsers.put(groupMute.muteName, Duration.ofSeconds(groupMute.time));
+//                                result = new Action.ActionResult(Errors.Error.SUCCESS);
+//                                getContext().getSystem().
+//                                        scheduler()
+//                                        .scheduleOnce(
+//                                                Duration.ofSeconds(groupMute.time),
+//                                                new Runnable() {
+//                                                    @Override
+//                                                    public void run() {
+//                                                        findGroup.mutedUsers.remove(groupMute.muteName);
+//                                                        ActorRef actorRef = findGroup.activeUsers.get(groupMute.muteName);
+//                                                        actorRef.tell(new Action.MutingTimeUp(findGroup.groupName), self());
+//                                                    }
+//                                                },
+//                                                getContext().getSystem().dispatcher());
+//                            } else result = new Action.ActionResult(Errors.Error.NO_SUCH_MEMBER);
+//                        } else result = new Action.ActionResult(Errors.Error.NO_PRIVILEGE);
+//                    }
+//                    sender().tell(result, self());
+//                })
                 .match(Action.UnMuteMember.class, groupUnMute -> {
                     Action.ActionResult result;
                     GroupData findGroup = this.groupsData.get(groupUnMute.groupName);

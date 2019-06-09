@@ -7,6 +7,7 @@ import akka.actor.*;
 import akka.pattern.AskableActorSelection;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
+import com.google.inject.Inject;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,10 @@ public class LookupActor extends AbstractActor {
 //        this(config.getString("lookup.path"));
 //    }
 
+    public LookupActor(String path) {
+        this.path = path;
+        sendIdentifyRequest();
+    }
     public LookupActor(ActorRef out) {
         //this.path = config.getString("lookup.path");
         this.path = context().system().settings().config().getString("lookup.path");
@@ -78,15 +83,15 @@ public class LookupActor extends AbstractActor {
         function that is used to detect other clients we want to send direct messages to.
          */
         Action.GetClient getClient = new Action.GetClient(username);
-        Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, getClient, timer);
         Action.GetClientResult client;
         try {
             client = (Action.GetClientResult) Await.result(rt, timer.duration());
-            timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+            timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
             if(client.didFind)
             {
-                return getContext().actorSelection(client.result).resolveOne(timer).value().get().get();
+                return client.result;
             }
         } catch (Exception e) {
             logger.debug(e.getMessage());
@@ -123,13 +128,13 @@ public class LookupActor extends AbstractActor {
 
     Receive active = receiveBuilder()
             .match(String.class, message -> {
-                output.tell("I received your message: " + message, self());
+                //output.tell("I received your message: " + message, self());
                 parseCommand(message);
             }).match(Action.Connect.class, connect -> {
                 // send message to server actor
                 logger.info("Connecting");
                 this.username = connect.username;
-                Action.Connect conMessage = new Action.Connect(this.username);
+                Action.Connect conMessage = new Action.Connect(this.username, self());
                 server.tell(conMessage, self()); // TODO: should be ASK to know if the user was indeed created
             })
             .match(Action.FrameworkCommand.class, frameworkCommand -> {
@@ -312,7 +317,7 @@ public class LookupActor extends AbstractActor {
 
     private void connect(String username) {
         this.username = username;
-        Action.Connect conMessage = new Action.Connect(this.username);
+        Action.Connect conMessage = new Action.Connect(this.username, self());
         Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         Future<Object> rt = Patterns.ask(server, conMessage, timer);
         Action.ActionResult result;

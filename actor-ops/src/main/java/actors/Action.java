@@ -1,7 +1,6 @@
 package actors;
 
 import akka.actor.ActorRef;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 
 import java.io.Serializable;
 import java.util.List;
@@ -46,9 +45,11 @@ public class Action {
     public static class Connect implements Message {
         private static final long serialVersionUID = 1L;
         public final String username;
+        public final ActorRef myRef;
 
-        public Connect(String username) {
+        public Connect(String username, ActorRef myRef) {
             this.username = username;
+            this.myRef = myRef;
         }
 
     }
@@ -278,10 +279,10 @@ public class Action {
 
     static class GetClientResult implements MessageResult {
         private static final long serialVersionUID = 1L;
-        public final String result;
+        public final ActorRef result;
         public final boolean didFind;
 
-        public GetClientResult(String result, boolean didFind) {
+        public GetClientResult(ActorRef result, boolean didFind) {
 
             this.result = result;
             this.didFind = didFind;
