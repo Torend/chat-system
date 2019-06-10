@@ -3,6 +3,7 @@ lazy val commonSettings = Seq(
   javacOptions ++= Seq("-Xlint:deprecation"),
   libraryDependencies += "com.typesafe.akka" %% "akka-remote" % "2.5.17",
   libraryDependencies += guice,
+  libraryDependencies += filters,
 
   organization := "com.lightbend",
   version := "1.0-SNAPSHOT"

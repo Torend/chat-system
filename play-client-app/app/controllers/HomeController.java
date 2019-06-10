@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
  * to the application's home page.
  * TODO: understand how play framework works to make a frontend with it.
  */
-public class HomeController extends Controller {
+public class HomeController extends Controller{
 
     private final ActorRef lookupActor;
 
