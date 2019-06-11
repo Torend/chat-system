@@ -3,6 +3,9 @@ package actors;
 import akka.actor.ActorRef;
 
 import java.io.Serializable;
+import java.util.List;
+import scala.concurrent.duration.Duration;
+
 
 /*
 this is where all the action messages are defined.
@@ -17,12 +20,38 @@ public class Action {
     public interface MessageResult extends Serializable {
     }
 
+    public static class AskOutput implements Message {
+        private static final long serialVersionUID = 1L;
+
+        public AskOutput() {
+
+        }
+
+    }
+
+
+    public static class GetOutput implements Message {
+        private static final long serialVersionUID = 1L;
+        public final Boolean hasContent;
+        public final List<String> lines;
+
+        public GetOutput(List<String> lines, Boolean hasContent) {
+            this.lines = lines;
+            this.hasContent = hasContent;
+
+        }
+
+    }
+
+
     public static class Connect implements Message {
         private static final long serialVersionUID = 1L;
         public final String username;
+        public final ActorRef myRef;
 
-        public Connect(String username) {
+        public Connect(String username, ActorRef myRef) {
             this.username = username;
+            this.myRef = myRef;
         }
 
     }
@@ -174,9 +203,9 @@ public class Action {
         public final String senderName;
         public final String muteName;
         public final String groupName;
-        public final int time;
+        public final Duration time;
 
-        public MuteMember(String senderName, String muteName, String groupName, int time) {
+        public MuteMember(String senderName, String muteName, String groupName, Duration time) {
             this.senderName = senderName;
             this.muteName = muteName;
             this.groupName = groupName;
@@ -252,10 +281,10 @@ public class Action {
 
     static class GetClientResult implements MessageResult {
         private static final long serialVersionUID = 1L;
-        public final String result;
+        public final ActorRef result;
         public final boolean didFind;
 
-        public GetClientResult(String result, boolean didFind) {
+        public GetClientResult(ActorRef result, boolean didFind) {
 
             this.result = result;
             this.didFind = didFind;
@@ -266,21 +295,23 @@ public class Action {
     public static class Requset implements MessageResult{
         private static final long serialVersionUID = 1L;
         public final String username;
+        public final String groupName;
 
-        public Requset(String username) {
+        public Requset(String username, String groupName) {
             this.username = username;
+            this.groupName = groupName;
         }
 
         public static class Accept extends Requset{
 
-            public Accept(String username) {
-                super(username);
+            public Accept(String username, String groupName) {
+                super(username, groupName);
             }
         }
         public static class Deny extends Requset{
 
-            public Deny(String username) {
-                super(username);
+            public Deny(String username, String groupName) {
+                super(username, groupName);
             }
         }
     }
