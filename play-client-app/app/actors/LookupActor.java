@@ -143,12 +143,20 @@ public class LookupActor extends AbstractActor
             .match(String.class, message ->
             {
                 //output.tell("I received your message: " + message, self());
-                try{
-                    parseCommand(message);
-                }
-                catch (Exception e)
+                //ping pong to keep the web socker alive
+                if(message.equals("__ping__"))
                 {
-                    wrongInput();
+                    output.tell("__pong__", self());
+                }
+                else
+                {
+                    try{
+                        parseCommand(message);
+                    }
+                    catch (Exception e)
+                    {
+                        wrongInput();
+                    }
                 }
 
             }).match(Action.Connect.class, connect ->

@@ -59,7 +59,22 @@ var send = function () {
     connection.send(text);
 };
 
+function ping() {
+    connection.send('__ping__');
+    tm = setTimeout(function () {
+
+        //ping()
+
+
+    }, 5000);
+}
+
+function pong() {
+    clearTimeout(tm);
+}
+
 connection.onopen = function () {
+    setInterval(ping, 5000);
     $send.prop("disabled", false);
     $messages.prepend($("<li class='bg-info' style='font-size: 1.5em'>Chat Started</li>"));
     $send.on('click', send);
@@ -75,6 +90,12 @@ connection.onerror = function (error) {
     console.log('WebSocket Error ', error);
 };
 connection.onmessage = function (event) {
+    var msg = event.data;
+    if (msg == '__pong__') {
+        //$messages.append($("<li style='font-size: 1.5em'>" + event.data + "</li>"))
+        pong();
+        return;
+    }
     if(event.data ==="")
     {
 
