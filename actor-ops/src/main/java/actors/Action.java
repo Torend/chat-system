@@ -4,6 +4,8 @@ import akka.actor.ActorRef;
 
 import java.io.Serializable;
 import java.util.List;
+import scala.concurrent.duration.Duration;
+
 
 /*
 this is where all the action messages are defined.
@@ -201,9 +203,9 @@ public class Action {
         public final String senderName;
         public final String muteName;
         public final String groupName;
-        public final int time;
+        public final Duration time;
 
-        public MuteMember(String senderName, String muteName, String groupName, int time) {
+        public MuteMember(String senderName, String muteName, String groupName, Duration time) {
             this.senderName = senderName;
             this.muteName = muteName;
             this.groupName = groupName;

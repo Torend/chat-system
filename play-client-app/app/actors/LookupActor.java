@@ -1,6 +1,5 @@
 package actors;
 
-import static java.lang.System.out;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import akka.actor.*;
@@ -149,7 +148,7 @@ public class LookupActor extends AbstractActor
                 }
                 catch (Exception e)
                 {
-                    output.tell("Bad input", self()); //TODO: different string?
+                    wrongInput();
                 }
 
             }).match(Action.Connect.class, connect ->
@@ -317,9 +316,11 @@ public class LookupActor extends AbstractActor
 
     public void parseCommand(String command) {
         String[] cmdArr = command.split(" ");
-        switch (cmdArr[0]) {
+        switch (cmdArr[0])
+        {
             case "/user": //user commands
-                switch (cmdArr[1]) {
+                switch (cmdArr[1])
+                {
                     case "connect":
                         connect(cmdArr[2]);
                         break;
@@ -327,17 +328,18 @@ public class LookupActor extends AbstractActor
                         disconnect();
                         break;
                     case "text":
-                        sendText(cmdArr[2], cmdArr[3]);
+                        sendText(cmdArr[2], buildMsg(3, cmdArr));
                         break;
                     case "file":
                         sendFile(cmdArr[2], cmdArr[3]);
                         break;
                     default:
-                        logger.info("wrong input1");
+                        wrongInput();
                 }
                 break;
             case "/group": //group commands
-                switch (cmdArr[1]) {
+                switch (cmdArr[1])
+                {
                     case "create":
                         createGroup(cmdArr[2]);
                         break;
@@ -345,18 +347,21 @@ public class LookupActor extends AbstractActor
                         leaveGroup(cmdArr[2]);
                         break;
                     case "send":
-                        switch (cmdArr[2]) {
+                        switch (cmdArr[2])
+                        {
                             case "text":
-                                groupTextMessage(cmdArr[3], cmdArr[4]);
+                                groupTextMessage(cmdArr[3], buildMsg(4, cmdArr));
                                 break;
                             case "file":
                                 groupFileMessage(cmdArr[3], cmdArr[4]);
                                 break;
                             default:
-                                logger.info("wrong input2");
+                                wrongInput();
                         }
+                        break;
                     case "user":
-                        switch (cmdArr[2]) {
+                        switch (cmdArr[2])
+                        {
                             case "invite":
                                 inviteToGroup(cmdArr[3], cmdArr[4]);
                                 break;
@@ -370,10 +375,12 @@ public class LookupActor extends AbstractActor
                                 unMute(cmdArr[3], cmdArr[4]);
                                 break;
                             default:
-                                logger.info("wrong input3");
+                                wrongInput();
                         }
+                        break;
                     case "coadmin":
-                        switch (cmdArr[2]) {
+                        switch (cmdArr[2])
+                        {
                             case "add":
                                 addCoAdmin(cmdArr[3], cmdArr[4]);
                                 break;
@@ -381,28 +388,39 @@ public class LookupActor extends AbstractActor
                                 removeCoAdmin(cmdArr[3], cmdArr[4]);
                                 break;
                             default:
-                                logger.info("wrong input4");
+                                wrongInput();
                         }
+                        break;
                     default:
-                        logger.info("wrong input5");
+                        wrongInput();
                 }
                 break;
-            case "YES": {
-                Action.InviteToGroup invitation = inviteQueue.remove();
-                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
-                assert inviterRef != null;
-                inviterRef.tell(new Action.Requset.Accept(this.username, invitation.groupName), self());
+            case "YES":
+            {
+                if (inviteQueue.size()>0)
+                {
+                    Action.InviteToGroup invitation=inviteQueue.remove();
+                    ActorRef inviterRef=getClientActorRef(invitation.inviterName);
+                    assert inviterRef!=null;
+                    inviterRef.tell(new Action.Requset.Accept(this.username, invitation.groupName), self());
+                }
+                else wrongInput();
                 break;
             }
-            case "NO": {
-                Action.InviteToGroup invitation = inviteQueue.remove();
-                ActorRef inviterRef = getClientActorRef(invitation.inviterName);
-                assert inviterRef != null;
-                inviterRef.tell(new Action.Requset.Deny(this.username, invitation.groupName), self());
+            case "NO":
+            {
+                if (inviteQueue.size()>0)
+                {
+                    Action.InviteToGroup invitation=inviteQueue.remove();
+                    ActorRef inviterRef=getClientActorRef(invitation.inviterName);
+                    assert inviterRef!=null;
+                    inviterRef.tell(new Action.Requset.Deny(this.username, invitation.groupName), self());
+                }
+                else wrongInput();
                 break;
             }
             default:
-                logger.info("wrong input");
+                wrongInput();
         }
     }
 
@@ -546,9 +564,9 @@ public class LookupActor extends AbstractActor
 
     private void leaveGroup(String groupName)
     {
-        Action.LeaveGroup createGroup = new Action.LeaveGroup(this.username, groupName);
+        Action.LeaveGroup leaveGroup = new Action.LeaveGroup(this.username, groupName);
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
-        Future<Object> rt = Patterns.ask(server, createGroup, timer);
+        Future<Object> rt = Patterns.ask(server, leaveGroup, timer);
         Action.ActionResult result;
         String toPrint = "";
         try
@@ -691,7 +709,7 @@ public class LookupActor extends AbstractActor
                 }
                 else if (result.getResult() == Errors.Error.MUTED)
                 {
-                   toPrint = result.getResult().getDescription() + "in " + groupName;
+                   toPrint = result.getResult().getDescription() + " in " + groupName;
                 }
                 output.tell(toPrint, self());
                 logger.info(toPrint);
@@ -711,7 +729,8 @@ public class LookupActor extends AbstractActor
 
     private void mute(String groupName, String targetusername, int time)
     {
-        Action.MuteMember muteMember = new Action.MuteMember(this.username, targetusername, groupName, time);
+        Duration duration = Duration.create(time, "seconds");
+        Action.MuteMember muteMember = new Action.MuteMember(this.username, targetusername, groupName, duration);
         AdminMessage(muteMember, groupName, targetusername);
     }
 
@@ -782,5 +801,26 @@ public class LookupActor extends AbstractActor
         {
             logger.debug(e.getMessage());
         }
+    }
+    private void wrongInput(){
+        String toPrint = "wrong input try again";
+        output.tell(toPrint, self());
+        logger.info(toPrint);
+    }
+
+    private String buildMsg(int from, String[] strings){
+        StringBuilder builder = new StringBuilder();
+        int count = 0;
+        for (String string : strings)
+        {
+            if (count >= from)
+            {
+                if (builder.length()>0)
+                    builder.append(" ");
+                builder.append(string);
+            }
+            count++;
+        }
+        return builder.toString();
     }
 }

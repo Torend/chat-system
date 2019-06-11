@@ -116,7 +116,7 @@ public class GroupManager extends AbstractActor {
                     else
                     {
                         if (leaveGroup.senderName.equals(findGroup.admin)) { // admin leave need to close the group
-                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "none", "admin has closed " + findGroup.groupName + "!");
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "Broadcast", "admin has closed " + findGroup.groupName + "!");
                             findGroup.groupRouter.route(new Broadcast(msg), self());
                             findGroup.closeGroup();
                             groupsData.remove(leaveGroup.groupName);
@@ -125,7 +125,7 @@ public class GroupManager extends AbstractActor {
                         else
                         {
                             findGroup.deleteUser(leaveGroup.senderName);
-                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "none", leaveGroup.senderName + " has left " + findGroup.groupName + "!");
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "Broadcast", leaveGroup.senderName + " has left " + findGroup.groupName + "!");
                             findGroup.groupRouter.route(new Broadcast(msg), self());
                             result = new Action.ActionResult(Errors.Error.SUCCESS);
                         }
@@ -155,7 +155,7 @@ public class GroupManager extends AbstractActor {
                             }
                             else
                             {
-                                result = new Action.ActionResult(Errors.Error.MUTED); // maybe need to add the time of mute somehow
+                                result = new Action.ActionResult(Errors.Error.MUTED);
                             }
                         }
                     }
@@ -253,12 +253,12 @@ public class GroupManager extends AbstractActor {
                     else {
                         if (groupMute.senderName.equals(findGroup.admin) || findGroup.adminsList.containsKey(groupMute.senderName)) { //check privilege
                             if (findGroup.activeUsers.containsKey(groupMute.muteName)) { // check if muteName is in this group
-                                findGroup.mutedUsers.put(groupMute.muteName, Duration.fromNanos(groupMute.time * 10_000_000_000.0));
+                                findGroup.mutedUsers.put(groupMute.muteName, groupMute.time);
                                 result = new Action.ActionResult(Errors.Error.SUCCESS);
                                 getContext().getSystem().
                                         scheduler()
                                         .scheduleOnce(
-                                                (FiniteDuration) Duration.fromNanos(groupMute.time * 10_000_000_000.0),
+                                                (FiniteDuration) groupMute.time,
                                                 new Runnable() {
                                                     @Override
                                                     public void run() {

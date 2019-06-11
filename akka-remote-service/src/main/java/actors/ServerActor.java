@@ -65,7 +65,8 @@ public class ServerActor extends AbstractActor {
                     if (userData != null)
                     {
                         // leave from all his groups
-                        userData.activeGroups.forEach(name -> this.groupsManager.tell(new Action.LeaveGroup(disconnect.username, name),sender()));
+                        userData.activeGroups.forEach(group -> this.groupsManager.tell(new Action.LeaveGroup(disconnect.username, group),sender()));
+                        userData.activeGroups.clear();
                         // remove from the server
                         map.remove(disconnect.username);
                         result = new Action.ActionResult(Errors.Error.SUCCESS);
@@ -99,16 +100,6 @@ public class ServerActor extends AbstractActor {
                     //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
-                .match(Action.CreateGroup.class, createGroup ->
-                {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
-                    this.groupsManager.forward(createGroup, getContext());
-                })
-                .match(Action.GroupMessage.class, groupMessage ->
-                {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
-                    this.groupsManager.forward(groupMessage, getContext());
-                })
                 .match(Action.InviteToGroup.class, groupMessage ->
                 {
                     //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
@@ -117,6 +108,9 @@ public class ServerActor extends AbstractActor {
                 .match(Action.AddToGroup.class, groupMessage ->
                 {
                     //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    UserData userData=map.get(groupMessage.inviteeName);
+                    if (userData!=null)
+                        userData.joinedGroup(groupMessage.groupName);
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.RemoveFromGroup.class, groupMessage ->
@@ -143,6 +137,11 @@ public class ServerActor extends AbstractActor {
                 {
                     //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
+                })
+                .match(Action.LeaveGroup.class, leaveGroup ->
+                {
+                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
+                    this.groupsManager.forward(leaveGroup, getContext());
                 })
 
 
