@@ -17,11 +17,11 @@ The main login is in parseCommands- the function that parses the commands and th
 
 Remote service (the server)-
 1. It contains the ServerActor
-this actor hendling the connection to server and pass message from the user to the groupManager actor ,also contains all connecting user and there data.
+this actor hendling the connection to server and pass messages user to the groupManager actor ,also contains all the connecting users and there data.
 2. It contains the GroupManager actor-
 this actor mange all the groups logic and contains data for every group.
 
 actor ops - is assistance class for client app and the remote service(the server)
-1. Action class contains all the action class for actorRef behavior.
-2. Errors class contains all the kind of errors.
-3. Util holdong some assistance function.
+1. Action class contains all the action class for all the actorRef behaviors.
+2. Errors class contains some kinds of errors.
+3. Util holdong some assistance function like getClientActorRef.
