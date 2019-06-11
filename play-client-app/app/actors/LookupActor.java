@@ -110,7 +110,7 @@ public class LookupActor extends AbstractActor
         return null;
     }
 
-    private String currentTime() {
+    private String currentTime() { // return the current time
         Calendar cal = Calendar.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
         return sdf.format(cal.getTime());
@@ -157,7 +157,7 @@ public class LookupActor extends AbstractActor
                 logger.info("Connecting");
                 this.username = connect.username;
                 Action.Connect conMessage = new Action.Connect(this.username, self());
-                server.tell(conMessage, self()); // TODO: should be ASK to know if the user was indeed created
+                server.tell(conMessage, self());
             })
             .match(Action.FrameworkCommand.class, frameworkCommand ->
             {
@@ -195,7 +195,7 @@ public class LookupActor extends AbstractActor
 
             })
             .match(Action.SendMessage.class, message -> {
-                // send  text message to server actor- works. //TODO: add similar function to send files, add group logic
+                // send  text message to server actor- works.
                 //logger.info("SENDO: {} {}", message.message, message.username);
                 ActorRef sendeeRef = Util.getClientActorRef(message.username, getContext(), server, logger);//getClientActorRef(message.username);
                 if(sendeeRef != null)
@@ -206,11 +206,6 @@ public class LookupActor extends AbstractActor
                     //server.tell(message, self());
 
                 }
-                else
-                {
-                    //TODO: if client we send message to is not found
-                }
-
 
             })
             .match(Action.GroupMessage.class, groupMessage ->
@@ -314,7 +309,7 @@ public class LookupActor extends AbstractActor
             .build();
 
 
-    public void parseCommand(String command) {
+    public void parseCommand(String command) { // parse the user commands
         String[] cmdArr = command.split(" ");
         switch (cmdArr[0])
         {
@@ -424,7 +419,7 @@ public class LookupActor extends AbstractActor
         }
     }
 
-    private void connect(String username)
+    private void connect(String username) // connect to the server
     {
         this.username = username;
         Action.Connect conMessage = new Action.Connect(this.username, self());
@@ -459,7 +454,7 @@ public class LookupActor extends AbstractActor
         }
     }
 
-    private void disconnect()
+    private void disconnect() // disconnect from the server
     {
         Action.Disconnect disconnectMessage = new Action.Disconnect(this.username);
         Timeout timer = new Timeout(Duration.create(5, TimeUnit.SECONDS));
@@ -488,7 +483,7 @@ public class LookupActor extends AbstractActor
         }
     }
 
-    private void sendText(String target, String msg)
+    private void sendText(String target, String msg) // send text to other user
     {
         ActorRef sendeeRef = getClientActorRef(target);
         if (sendeeRef != null)
@@ -504,7 +499,7 @@ public class LookupActor extends AbstractActor
         }
     }
 
-    private void sendFile(String target, String sourcefilePath)
+    private void sendFile(String target, String sourcefilePath) // send file to other user
     {
         Path fileLocation = Paths.get(sourcefilePath);
         String toPrint = "";
@@ -531,7 +526,7 @@ public class LookupActor extends AbstractActor
         }
     }
 
-    private void createGroup(String groupName)
+    private void createGroup(String groupName) // create new group
     {
         Action.CreateGroup createGroup = new Action.CreateGroup(this.username, groupName, self());
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
@@ -562,7 +557,7 @@ public class LookupActor extends AbstractActor
         }
     }
 
-    private void leaveGroup(String groupName)
+    private void leaveGroup(String groupName) // leave group
     {
         Action.LeaveGroup leaveGroup = new Action.LeaveGroup(this.username, groupName);
         Timeout timer = new Timeout(Duration.create(1, TimeUnit.SECONDS));
@@ -588,7 +583,7 @@ public class LookupActor extends AbstractActor
         }
     }
 
-    private void inviteToGroup(String groupName, String invitee)
+    private void inviteToGroup(String groupName, String invitee) // invite new user to the group
     {
         // check if invitee exist in the server
         ActorRef inviteeRef = getClientActorRef(invitee);
@@ -624,7 +619,7 @@ public class LookupActor extends AbstractActor
                 }
                 else if (result.getResult() == Errors.Error.SUCCESS)
                 {
-                    inviteToGroup = new Action.InviteToGroup(this.username, invitee, groupName); //TODO - i think it should be done this way since messages cannot be sent twice
+                    inviteToGroup = new Action.InviteToGroup(this.username, invitee, groupName);
                     inviteeRef.tell(inviteToGroup, self());
 //                    timer = new Timeout(Duration.create(60, TimeUnit.SECONDS));
 //                    Future<Object> rt2 = Patterns.ask(inviteeRef, inviteToGroup, timer);
@@ -641,7 +636,7 @@ public class LookupActor extends AbstractActor
 //                            }
 //                            else
 //                                { // deny the invitation
-//                                toPrint =  invitee + " deny the invitation"; //TODO: not sure if we need to print this
+//                                toPrint =  invitee + " deny the invitation";
 //                            }
 //                        }
 //                    }
@@ -658,18 +653,18 @@ public class LookupActor extends AbstractActor
         }
         finally
         {
-            output.tell(toPrint, self()); //TODO: the prints here maybe duplicates
+            output.tell(toPrint, self());
             logger.info(toPrint);
         }
     }
 
-    private void groupTextMessage(String groupName, String message)
+    private void groupTextMessage(String groupName, String message) //send a group text message
     {
         Action.GroupMessage.Text textMsg = new Action.GroupMessage.Text(groupName, this.username, message);
         sendMessage(groupName, textMsg);
     }
 
-    private void groupFileMessage(String groupName, String sourcefilePath)
+    private void groupFileMessage(String groupName, String sourcefilePath) //send a group file message
     {
         Path fileLocation = Paths.get(sourcefilePath);
         try
@@ -753,6 +748,7 @@ public class LookupActor extends AbstractActor
     }
 
     private void AdminMessage(Action.Message msg, String groupName, String targetusername)
+    // send all the admin/coAdmin messages
     {
         // check if invitee exist in the server
         ActorRef targetRef = getClientActorRef(targetusername);
@@ -802,13 +798,13 @@ public class LookupActor extends AbstractActor
             logger.debug(e.getMessage());
         }
     }
-    private void wrongInput(){
+    private void wrongInput(){ //print wrong input
         String toPrint = "wrong input try again";
         output.tell(toPrint, self());
         logger.info(toPrint);
     }
 
-    private String buildMsg(int from, String[] strings){
+    private String buildMsg(int from, String[] strings){ // build string from index to the end of the array
         StringBuilder builder = new StringBuilder();
         int count = 0;
         for (String string : strings)

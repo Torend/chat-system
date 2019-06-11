@@ -14,7 +14,7 @@ class UserData {
     this is the class that represent the data that the server uses to track a user
      */
     public ActorRef clientRef;
-    public List<String> activeGroups;
+    public List<String> activeGroups; // list of the active groups
 
     public UserData(ActorRef ref) {
         this.clientRef = ref;
@@ -79,7 +79,6 @@ public class ServerActor extends AbstractActor {
                 })
                 .match(Action.GetClient.class, getClient ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     String toPrint = String.format("AM FINDING %s", sender().toString());
                     System.out.println(toPrint);
                     UserData foundUser = map.get(getClient.username);
@@ -88,7 +87,6 @@ public class ServerActor extends AbstractActor {
                 })
                 .match(Action.CreateGroup.class, createGroup ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     UserData userData = map.get(createGroup.adminName);
                     if (userData != null) {
                         userData.joinedGroup(createGroup.groupName);
@@ -97,17 +95,14 @@ public class ServerActor extends AbstractActor {
                 })
                 .match(Action.GroupMessage.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.InviteToGroup.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.AddToGroup.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     UserData userData=map.get(groupMessage.inviteeName);
                     if (userData!=null)
                         userData.joinedGroup(groupMessage.groupName);
@@ -115,36 +110,28 @@ public class ServerActor extends AbstractActor {
                 })
                 .match(Action.RemoveFromGroup.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.AddCoAdmin.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.DeleteCoAdmin.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.MuteMember.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.UnMuteMember.class, groupMessage ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(groupMessage, getContext());
                 })
                 .match(Action.LeaveGroup.class, leaveGroup ->
                 {
-                    //will return the ActorPath of the actor in serializable format // TODO: handle of user does not exists?
                     this.groupsManager.forward(leaveGroup, getContext());
                 })
-
-
                 .build();
     }
 
