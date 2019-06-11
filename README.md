@@ -1,3 +1,7 @@
+Akka-WhatsApp
+
+Omer Porzecanski - 208892992 Toren Danino - 203831714
+
 Client actor order-
 It contains the LookupActor as main actor.
 This actor is used as the play framework actor and as client actor.
@@ -11,4 +15,13 @@ Once ot recieves data to be sent to the user fromm another users\groups it send 
 And also once it recieves data  from the websocket, it parases the data and transfers it to the right place.
 The main login is in parseCommands- the function that parses the commands and then creates the relevant messages.
 
-Also CSP has to be disabled for the Play framework to work because of JS issues
+Remote service (the server)-
+1. It contains the ServerActor
+this actor hendling the connection to server and pass message from the user to the groupManager actor ,also contains all connecting user and there data.
+2. It contains the GroupManager actor-
+this actor mange all the groups logic and contains data for every group.
+
+actor ops - is assistance class for client app and the remote service(the server)
+1. Action class contains all the action class for actorRef behavior.
+2. Errors class contains all the kind of errors.
+3. Util holdong some assistance function.
