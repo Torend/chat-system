@@ -4,11 +4,14 @@ import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.routing.*;
 
-import java.time.Duration;
+import scala.concurrent.duration.Duration;
+import scala.concurrent.duration.FiniteDuration;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 class GroupData {
     /*
@@ -28,19 +31,14 @@ class GroupData {
         this.groupName = groupName;
         this.admin = admin;
         this.activeUsers = new HashMap<String, ActorRef>();
+        this.adminsList = new HashMap<String, ActorRef>();
         this.mutedUsers = new HashMap<String, Duration>();
+
     }
 
     void addUser(String username, ActorRef actorRef) {
         this.activeUsers.put(username, actorRef);
     }
-
-    void deleteUser(String username) {
-        this.groupRouter.removeRoutee(activeUsers.get(username));
-        this.activeUsers.remove(username);
-        this.adminsList.remove(username);
-    }
-
     void closeGroup() {
         adminsList.clear();
         activeUsers.clear();
@@ -53,6 +51,16 @@ class GroupData {
     void deleteCoAdmin(String username) {
         this.adminsList.remove(username);
     }
+
+    void deleteUser(String username) {
+        this.groupRouter = this.groupRouter.removeRoutee(activeUsers.get(username));
+        this.activeUsers.remove(username);
+        if (this.adminsList.containsKey(username))
+        {
+            deleteCoAdmin(username);
+        }
+    }
+
 }
 
 /**
@@ -71,16 +79,17 @@ class GroupData {
  **/
 public class GroupManager extends AbstractActor {
     private Map<String, GroupData> groupsData; // this is the database to keep track of groups
-    final String groupPath = "/user/server/groups";
 
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(Action.CreateGroup.class, groupCreation -> {
+                .match(Action.CreateGroup.class, groupCreation ->
+                {
                     System.out.println("creating group");
                     GroupData findGroup = this.groupsData.get(groupCreation.groupName);
                     Action.ActionResult result;
-                    if (findGroup == null) {
+                    if (findGroup == null)
+                    {
                         List<Routee> routees = new ArrayList<Routee>();
                         routees.add(new ActorRefRoutee(groupCreation.adminRef));
                         Router router = new Router(new RoundRobinRoutingLogic(), routees);
@@ -90,67 +99,102 @@ public class GroupManager extends AbstractActor {
                         result = new Action.ActionResult(Errors.Error.SUCCESS);
                     }
                     // in case we already hav a group with that name
-                    else result = new Action.ActionResult(Errors.Error.DUPLICATE_GROUP);
+                    else
+                    {
+                        result = new Action.ActionResult(Errors.Error.DUPLICATE_GROUP);
+                    }
                     sender().tell(result, self());
                 })
-                .match(Action.LeaveGroup.class, leaveGroup -> {
+                .match(Action.LeaveGroup.class, leaveGroup ->
+                {
                     Action.ActionResult result;
                     GroupData findGroup = this.groupsData.get(leaveGroup.groupName);
                     if (findGroup == null)
+                    {
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
-                    else {
+                    }
+                    else
+                    {
                         if (leaveGroup.senderName.equals(findGroup.admin)) { // admin leave need to close the group
-                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "none", "admin has closed " + findGroup.groupName + "!");
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "Broadcast", "admin has closed " + findGroup.groupName + "!");
                             findGroup.groupRouter.route(new Broadcast(msg), self());
                             findGroup.closeGroup();
                             groupsData.remove(leaveGroup.groupName);
                             result = new Action.ActionResult(Errors.Error.SUCCESS);
-                        } else {
+
+                        }
+                        else
+                        {
                             findGroup.deleteUser(leaveGroup.senderName);
-                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "none", leaveGroup.senderName + " has left " + findGroup.groupName + "!");
+                            Action.GroupMessage.Text msg = new Action.GroupMessage.Text(findGroup.groupName, "Broadcast", leaveGroup.senderName + " has left " + findGroup.groupName + "!");
                             findGroup.groupRouter.route(new Broadcast(msg), self());
                             result = new Action.ActionResult(Errors.Error.SUCCESS);
                         }
                     }
                     sender().tell(result, self());
                 })
-                .match(Action.GroupMessage.class, groupMessage -> {
+                .match(Action.GroupMessage.class, groupMessage ->
+                {
                     Action.ActionResult result;
                     GroupData findGroup = this.groupsData.get(groupMessage.groupName);
                     if (findGroup == null)
+                    {
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
-                    else {
+                    }
+                    else
+                        {
                         if (!findGroup.activeUsers.containsKey(groupMessage.senderName))
+                        {
                             result = new Action.ActionResult(Errors.Error.NO_SUCH_MEMBER);
-                        else {
-                            if (!findGroup.mutedUsers.containsKey(groupMessage.senderName)) {
+                        }
+                        else
+                            {
+                            if (!findGroup.mutedUsers.containsKey(groupMessage.senderName))
+                            {
                                 findGroup.groupRouter.route(new Broadcast(groupMessage), self());
                                 result = new Action.ActionResult(Errors.Error.SUCCESS);
-                            } else
-                                result = new Action.ActionResult(Errors.Error.MUTED); // maybe need to add the time of mute somehow
+                            }
+                            else
+                            {
+                                result = new Action.ActionResult(Errors.Error.MUTED);
+                            }
                         }
                     }
                     sender().tell(result, self());
                 })
-                .match(Action.InviteToGroup.class, groupInvitation -> {
+                .match(Action.InviteToGroup.class, groupInvitation ->
+                {
                     Action.ActionResult result;
                     GroupData findGroup = this.groupsData.get(groupInvitation.groupName);
                     if (findGroup == null)
+                    {
                         result = new Action.ActionResult(Errors.Error.NO_SUCH_GROUP);
-                    else {
+                    }
+                    else
+                    {
                         String inviteeName = groupInvitation.inviteeName;
                         String inviterName = groupInvitation.inviterName;
-                        if (inviterName.equals(findGroup.admin) || findGroup.adminsList.containsKey(inviterName)) { //check privilege
+                        if (inviterName.equals(findGroup.admin) || findGroup.adminsList.containsKey(inviterName))  //check privilege
+                        {
                             if (!findGroup.activeUsers.containsKey(inviteeName)) // check if inviteeName is not already member in this group
+                            {
                                 result = new Action.ActionResult(Errors.Error.SUCCESS);
-                            else result = new Action.ActionResult(Errors.Error.ALREADY_MEMBER);
-                        } else result = new Action.ActionResult(Errors.Error.NO_PRIVILEGE);
+                            }
+                            else
+                            {
+                                result = new Action.ActionResult(Errors.Error.ALREADY_MEMBER);
+                            }
+                        }
+                        else
+                        {
+                            result = new Action.ActionResult(Errors.Error.NO_PRIVILEGE);
+                        }
                     }
                     sender().tell(result, self());
                 })
                 .match(Action.AddToGroup.class, groupAddition -> {
                     GroupData findGroup = this.groupsData.get(groupAddition.groupName);
-                    findGroup.groupRouter.addRoutee(groupAddition.inviteeRef);
+                    findGroup.groupRouter = findGroup.groupRouter.addRoutee(groupAddition.inviteeRef);
                     findGroup.addUser(groupAddition.inviteeName, groupAddition.inviteeRef);
                 })
                 .match(Action.RemoveFromGroup.class, groupRemoval -> {
@@ -210,12 +254,12 @@ public class GroupManager extends AbstractActor {
                     else {
                         if (groupMute.senderName.equals(findGroup.admin) || findGroup.adminsList.containsKey(groupMute.senderName)) { //check privilege
                             if (findGroup.activeUsers.containsKey(groupMute.muteName)) { // check if muteName is in this group
-                                findGroup.mutedUsers.put(groupMute.muteName, Duration.ofSeconds(groupMute.time));
+                                findGroup.mutedUsers.put(groupMute.muteName, groupMute.time);
                                 result = new Action.ActionResult(Errors.Error.SUCCESS);
                                 getContext().getSystem().
                                         scheduler()
                                         .scheduleOnce(
-                                                Duration.ofSeconds(groupMute.time),
+                                                (FiniteDuration) groupMute.time,
                                                 new Runnable() {
                                                     @Override
                                                     public void run() {
